@@ -1,6 +1,30 @@
 import { Query, ID } from 'react-native-appwrite';
 import { databases, functions, APPWRITE_CONFIG } from './appwriteClient';
 import { Subscription } from '../types';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const SUB_CACHE_FILE = `${FileSystem.cacheDirectory}sub_status_cache.json`;
+
+const saveSubToCache = async (sub: Subscription | null) => {
+    try {
+        await FileSystem.writeAsStringAsync(SUB_CACHE_FILE, JSON.stringify(sub));
+    } catch (e) {
+        console.warn('[SubCache] Save Error:', e);
+    }
+};
+
+const getSubFromCache = async (): Promise<Subscription | null> => {
+    try {
+        const info = await FileSystem.getInfoAsync(SUB_CACHE_FILE);
+        if (info.exists) {
+            const content = await FileSystem.readAsStringAsync(SUB_CACHE_FILE);
+            return JSON.parse(content);
+        }
+    } catch (e) {
+        console.warn('[SubCache] Read Error:', e);
+    }
+    return null;
+};
 
 export const getSubscriptionStatus = async (userId: string): Promise<Subscription | null> => {
     try {
@@ -12,16 +36,15 @@ export const getSubscriptionStatus = async (userId: string): Promise<Subscriptio
             [Query.equal('userId', userId)]
         );
 
-        if (result.documents.length === 0) return null;
+        const sub = result.documents.length === 0 ? null : (result.documents[0] as unknown as Subscription);
 
-        return result.documents[0] as unknown as Subscription;
+        // Cache it
+        saveSubToCache(sub);
+
+        return sub;
     } catch (error: any) {
-        if (error.code === 401 || error.code === 403) {
-            console.warn('Subscription access restricted. Ensure "subscriptions" collection has Read permissions for "role:member" or the specific user.');
-        } else {
-            console.error('Get subscription status error:', error);
-        }
-        return null;
+        console.error('Get subscription status error (checking cache):', error.message);
+        return getSubFromCache();
     }
 };
 

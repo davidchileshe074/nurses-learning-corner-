@@ -1,6 +1,30 @@
 import { Query } from 'react-native-appwrite';
 import { databases, APPWRITE_CONFIG } from './appwriteClient';
 import { ContentItem, Program, YearOfStudy, Subject } from '../types';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const CONTENT_CACHE_FILE = `${FileSystem.cacheDirectory}content_metadata_cache.json`;
+
+const saveToCache = async (content: ContentItem[]) => {
+    try {
+        await FileSystem.writeAsStringAsync(CONTENT_CACHE_FILE, JSON.stringify(content));
+    } catch (e) {
+        console.warn('[Cache] Save Error:', e);
+    }
+};
+
+const getFromCache = async (): Promise<ContentItem[]> => {
+    try {
+        const info = await FileSystem.getInfoAsync(CONTENT_CACHE_FILE);
+        if (info.exists) {
+            const content = await FileSystem.readAsStringAsync(CONTENT_CACHE_FILE);
+            return JSON.parse(content);
+        }
+    } catch (e) {
+        console.warn('[Cache] Read Error:', e);
+    }
+    return [];
+};
 
 export const getContent = async (program?: Program, yearOfStudy?: any, subject?: Subject, type?: string): Promise<ContentItem[]> => {
     try {
@@ -16,7 +40,7 @@ export const getContent = async (program?: Program, yearOfStudy?: any, subject?:
         }
 
         if (yearOfStudy) {
-            const yearDigit = yearOfStudy.replace(/\D/g, '');
+            const yearDigit = String(yearOfStudy).replace(/\D/g, '');
             queries.push(Query.equal('yearOfStudy', [yearOfStudy, yearDigit, `year${yearDigit}`]));
         }
 
@@ -35,14 +59,29 @@ export const getContent = async (program?: Program, yearOfStudy?: any, subject?:
             queries
         );
 
-        return result.documents as unknown as ContentItem[];
-    } catch (error: any) {
-        if (error.code === 401 || error.code === 403) {
-            console.warn(`[AUTH ERROR] Content access restricted for collection '${APPWRITE_CONFIG.contentCollectionId}'. Code: ${error.code}`);
-            console.warn('Check if "Users" have "Read" permissions in Appwrite Console.');
-        } else {
-            console.error('Get content error:', error);
+        const documents = result.documents as unknown as ContentItem[];
+
+        // Update cache if we got fresh data
+        if (documents.length > 0) {
+            saveToCache(documents);
         }
+
+        return documents;
+    } catch (error: any) {
+        console.error('Get content error (attempting cache):', error.message);
+
+        // Fallback to cache if offline
+        const cached = await getFromCache();
+
+        // If we have filters, apply them manually to cached data
+        if (cached.length > 0) {
+            return cached.filter(item => {
+                if (program && item.program !== program) return false;
+                if (subject && item.subject !== subject) return false;
+                return true;
+            });
+        }
+
         return [];
     }
 };

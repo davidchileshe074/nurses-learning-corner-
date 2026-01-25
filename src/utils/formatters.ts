@@ -7,7 +7,7 @@ export const formatProgram = (program: Program): string => {
     const programMap: Record<Program, string> = {
         'REGISTERED-NURSING': 'Registered Nursing',
         'MIDWIFERY': 'Midwifery',
-        'PUBLIC-HEALTH': 'Public Health Nursing',
+        'PUBLIC-HEALTH': 'Published Health Nursing',
         'MENTAL-HEALTH': 'Mental Health Nursing',
         'ONCOLOGY': 'Oncology Nursing',
         'PAEDIATRIC': 'Paediatric Nursing',

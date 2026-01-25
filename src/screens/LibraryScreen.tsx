@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -121,8 +122,15 @@ const LibraryScreen = ({ route }: any) => {
 
             setAllContent(contentData);
         } catch (error) {
-            console.error('[Library] Load Error:', error);
-            Alert.alert('Connection Error', 'Could not refresh the library. Please check your internet.');
+            console.warn('[Library] Load Error (using cache):', error);
+            // Only alert if we have absolutely no data to show
+            if (allContent.length === 0) {
+                Toast.show({
+                    type: 'info',
+                    text1: 'Offline Mode',
+                    text2: 'You are viewing recently cached library content.'
+                });
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);

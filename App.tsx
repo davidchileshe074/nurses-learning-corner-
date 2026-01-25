@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import Navigation from './src/navigation/index';
 import { initDownloads } from './src/services/downloads';
 import * as SplashScreen from 'expo-splash-screen';
+import Toast from 'react-native-toast-message';
 import "./global.css";
 
 // Keep the splash screen visible while we fetch resources
@@ -55,6 +56,7 @@ export default function App() {
           </AuthProvider>
         </NavigationContainer>
       </SafeAreaProvider>
+      <Toast />
     </GestureHandlerRootView>
   );
 }

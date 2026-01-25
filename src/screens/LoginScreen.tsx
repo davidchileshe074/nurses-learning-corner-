@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, getCurrentUser, sendPasswordResetEmail } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 const LoginScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
@@ -20,7 +21,11 @@ const LoginScreen = ({ navigation }: any) => {
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Please fill in all fields'
+            });
             return;
         }
 
@@ -32,7 +37,11 @@ const LoginScreen = ({ navigation }: any) => {
                 setUser(profile as any);
             }
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message);
+            Toast.show({
+                type: 'error',
+                text1: 'Login Failed',
+                text2: error.message
+            });
         } finally {
             setLoading(false);
         }
@@ -40,20 +49,29 @@ const LoginScreen = ({ navigation }: any) => {
 
     const handleForgotPassword = async () => {
         if (!resetEmail) {
-            Alert.alert('Error', 'Please enter your email address');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Please enter your email address'
+            });
             return;
         }
 
         setResetLoading(true);
         try {
             await sendPasswordResetEmail(resetEmail);
-            Alert.alert(
-                'Check Your Email',
-                'If an account exists with this email, we have sent password reset instructions.',
-                [{ text: 'OK', onPress: () => setForgotPasswordModalVisible(false) }]
-            );
+            Toast.show({
+                type: 'success',
+                text1: 'Check Your Email',
+                text2: 'We have sent password reset instructions.',
+                onPress: () => setForgotPasswordModalVisible(false)
+            });
         } catch (error: any) {
-            Alert.alert('Error', 'Failed to send reset email. Please try again.');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to send reset email. Please try again.'
+            });
         } finally {
             setResetLoading(false);
         }

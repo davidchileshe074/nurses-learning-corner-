@@ -6,6 +6,7 @@ import { databases, APPWRITE_CONFIG } from '../services/appwriteClient';
 import { useAuth } from '../context/AuthContext';
 import { getDeviceId } from '../services/device';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 const VerifyOTPScreen = ({ route, navigation }: any) => {
     const { email: paramEmail } = route.params || {};
@@ -23,7 +24,11 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
                 const token = await sendEmailOTP(email, user?.$id || 'unique_temp_id');
                 setTempUserId(token.userId);
             } catch (error: any) {
-                Alert.alert('Error', 'Failed to send verification code. ' + error.message);
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Failed to send verification code.'
+                });
             }
         };
         sendCode();
@@ -31,7 +36,11 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
 
     const handleVerify = async () => {
         if (code.length < 6) {
-            Alert.alert('Error', 'Please enter the 6-digit code');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Please enter the 6-digit code'
+            });
             return;
         }
 
@@ -50,10 +59,18 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
                     { verified: true, deviceId }
                 );
                 setUser({ ...targetProfile, verified: true, deviceId });
-                Alert.alert('Success', 'Account verified successfully!');
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Account verified successfully!'
+                });
             }
         } catch (error: any) {
-            Alert.alert('Verification Failed', 'Invalid code or expired session.');
+            Toast.show({
+                type: 'error',
+                text1: 'Verification Failed',
+                text2: 'Invalid code or expired session.'
+            });
         } finally {
             setLoading(false);
         }
@@ -107,7 +124,11 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
                         onPress={() => {
                             setLoading(true);
                             sendEmailOTP(email!, user?.$id || 'unique_temp_id')
-                                .then(() => Alert.alert('Sent', 'A new code has been sent.'))
+                                .then(() => Toast.show({
+                                    type: 'success',
+                                    text1: 'Sent',
+                                    text2: 'A new code has been sent.'
+                                }))
                                 .finally(() => setLoading(false));
                         }}
                         className="mt-6 items-center"

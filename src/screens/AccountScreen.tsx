@@ -22,6 +22,7 @@ import { updateUserProfile } from '../services/auth';
 import { useNavigation } from '@react-navigation/native';
 import { getNotifications } from '../services/notifications';
 import { AppNotification } from '../types';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -60,21 +61,37 @@ const AccountScreen = () => {
 
     const handleRedeem = async () => {
         if (!code || code.length < 8) {
-            Alert.alert('Invalid Code', 'Please enter a valid access code.');
+            Toast.show({
+                type: 'error',
+                text1: 'Invalid Code',
+                text2: 'Please enter a valid access code.'
+            });
             return;
         }
         setLoading(true);
         try {
             const result = await redeemAccessCode(code, user!.userId);
             if (result.success) {
-                Alert.alert('Success', `Subscription extended by ${result.durationDays} days!`);
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: `Subscription extended by ${result.durationDays} days!`
+                });
                 setCode('');
                 fetchSub();
             } else {
-                Alert.alert('Error', result.message || 'Invalid or used code');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: result.message || 'Invalid or used code'
+                });
             }
         } catch (error: any) {
-            Alert.alert('Error', error.message);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error.message
+            });
         } finally {
             setLoading(false);
         }
@@ -116,11 +133,19 @@ const AccountScreen = () => {
                     await deleteFile(user.avatarFileId);
                 }
 
-                Alert.alert('Success', 'Profile picture updated!');
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Profile picture updated!'
+                });
             }
         } catch (error: any) {
             console.error(error);
-            Alert.alert('Upload Failed', error.message || 'Could not upload image');
+            Toast.show({
+                type: 'error',
+                text1: 'Upload Failed',
+                text2: error.message || 'Could not upload image'
+            });
         } finally {
             setUploading(false);
         }

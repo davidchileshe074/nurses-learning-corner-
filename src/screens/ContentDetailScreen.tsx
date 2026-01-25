@@ -18,6 +18,7 @@ import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,9 +101,17 @@ const ContentDetailScreen = ({ route }: any) => {
         const success = await downloadContent(item.$id, item.title, item.type, item.storageFileId);
         setDownloading(false);
         if (success) {
-            Alert.alert('Securely Saved', 'This resource is now available for offline study.');
+            Toast.show({
+                type: 'success',
+                text1: 'Securely Saved',
+                text2: 'This resource is now available for offline study.'
+            });
         } else {
-            Alert.alert('Download Error', 'Could not save file. Please check your storage.');
+            Toast.show({
+                type: 'error',
+                text1: 'Download Error',
+                text2: 'Could not save file. Please check your storage.'
+            });
         }
     };
 
@@ -216,7 +225,11 @@ const ContentDetailScreen = ({ route }: any) => {
                             onLoadComplete={() => setLoading(false)}
                             onError={(error) => {
                                 console.log(error);
-                                Alert.alert('Studying Error', 'Failed to load document. Please check connection.');
+                                Toast.show({
+                                    type: 'error',
+                                    text1: 'Studying Error',
+                                    text2: 'Failed to load document.'
+                                });
                             }}
                             style={{ flex: 1, width: width, height: height, backgroundColor: '#F8FAFC' }}
                             enablePaging={true}

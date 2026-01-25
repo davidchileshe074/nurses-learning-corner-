@@ -5,6 +5,7 @@ import { signUp } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { Program, YearOfStudy } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 const RegisterScreen = ({ navigation }: any) => {
     const { setUser } = useAuth();
@@ -20,7 +21,7 @@ const RegisterScreen = ({ navigation }: any) => {
     const programs: { value: Program; label: string }[] = [
         { value: 'REGISTERED-NURSING', label: 'Registered Nursing' },
         { value: 'MIDWIFERY', label: 'Midwifery' },
-        { value: 'PUBLIC-HEALTH', label: 'Public Health Nursing' },
+        { value: 'PUBLIC-HEALTH', label: 'Published Health Nursing' },
         { value: 'MENTAL-HEALTH', label: 'Mental Health Nursing' },
         { value: 'ONCOLOGY', label: 'Oncology Nursing' },
         { value: 'PAEDIATRIC', label: 'Paediatric Nursing' },
@@ -34,29 +35,45 @@ const RegisterScreen = ({ navigation }: any) => {
 
     const handleRegister = async () => {
         if (!email || !password || !fullName || !whatsappNumber) {
-            Alert.alert('Error', 'Please fill in all required fields');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Please fill in all required fields'
+            });
             return;
         }
 
         if (password.length < 8) {
-            Alert.alert('Error', 'Password must be at least 8 characters long');
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Password must be at least 8 characters long'
+            });
             return;
         }
 
         setLoading(true);
         try {
             const profile = await signUp(email, password, fullName, whatsappNumber, yearOfStudy, program);
-            Alert.alert('Success', 'Account created! Please verify your email address.');
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Account created! Please verify your email address.'
+            });
             setUser(profile as any);
         } catch (error: any) {
-            Alert.alert('Registration Failed', error.message);
+            Toast.show({
+                type: 'error',
+                text1: 'Registration Failed',
+                text2: error.message
+            });
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
             <StatusBar barStyle="dark-content" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -172,8 +189,8 @@ const RegisterScreen = ({ navigation }: any) => {
                                             key={y.value}
                                             onPress={() => setYearOfStudy(y.value)}
                                             className={`flex-1 h-12 rounded-xl items-center justify-center border ${yearOfStudy === y.value
-                                                    ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
-                                                    : 'bg-white border-slate-200'
+                                                ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
+                                                : 'bg-white border-slate-200'
                                                 }`}
                                         >
                                             <Text className={`font-bold text-sm ${yearOfStudy === y.value ? 'text-white' : 'text-slate-600'}`}>
@@ -194,8 +211,8 @@ const RegisterScreen = ({ navigation }: any) => {
                                                 key={p.value}
                                                 onPress={() => setProgram(p.value)}
                                                 className={`px-4 py-3 rounded-xl border mb-1 ${isSelected
-                                                        ? 'bg-blue-50 border-blue-600'
-                                                        : 'bg-white border-slate-200'
+                                                    ? 'bg-blue-50 border-blue-600'
+                                                    : 'bg-white border-slate-200'
                                                     }`}
                                             >
                                                 <Text className={`font-bold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
