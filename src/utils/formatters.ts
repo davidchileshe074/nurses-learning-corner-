@@ -5,10 +5,12 @@ import { Program, YearOfStudy } from '../types';
  */
 export const formatProgram = (program: Program): string => {
     const programMap: Record<Program, string> = {
-        'G-NURSING': 'General Nursing',
+        'REGISTERED-NURSING': 'Registered Nursing',
         'MIDWIFERY': 'Midwifery',
         'PUBLIC-HEALTH': 'Public Health Nursing',
         'MENTAL-HEALTH': 'Mental Health Nursing',
+        'ONCOLOGY': 'Oncology Nursing',
+        'PAEDIATRIC': 'Paediatric Nursing',
     };
     return programMap[program] || program;
 };
@@ -17,6 +19,7 @@ export const formatProgram = (program: Program): string => {
  * Formats year code to user-friendly display (e.g., "YEAR1" -> "1")
  */
 export const formatYear = (year: YearOfStudy): string => {
+    if (!year || typeof year !== 'string') return '';
     return year.replace('YEAR', '');
 };
 
@@ -24,5 +27,6 @@ export const formatYear = (year: YearOfStudy): string => {
  * Formats year code to full display (e.g., "YEAR1" -> "Year 1")
  */
 export const formatYearFull = (year: YearOfStudy): string => {
+    if (!year || typeof year !== 'string') return 'Year';
     return `Year ${year.replace('YEAR', '')}`;
 };

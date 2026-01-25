@@ -25,13 +25,27 @@
       "package": "com.chileshe12345678.nurselearningcorner"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-secure-store",
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you set a profile picture.",
+          "cameraPermission": "The app accesses your camera to let you take a profile picture."
+        }
+      ]
     ],
+    "updates": {
+      "url": "https://u.expo.dev/55c3c469-82f3-4453-905b-5e2ab6d0dccf"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "extra": {
       "eas": {
         "projectId": "55c3c469-82f3-4453-905b-5e2ab6d0dccf"

@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform, Dimensions, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signIn, getCurrentUser } from '../services/auth';
+import { signIn, getCurrentUser, sendPasswordResetEmail } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, Typography, Shadow } from '../theme';
-
-const { width } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    // Forgot Password State
+    const [forgotPasswordModalVisible, setForgotPasswordModalVisible] = useState(false);
+    const [resetEmail, setResetEmail] = useState('');
+    const [resetLoading, setResetLoading] = useState(false);
+
     const { setUser } = useAuth();
 
     const handleLogin = async () => {
@@ -36,209 +38,191 @@ const LoginScreen = ({ navigation }: any) => {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!resetEmail) {
+            Alert.alert('Error', 'Please enter your email address');
+            return;
+        }
+
+        setResetLoading(true);
+        try {
+            await sendPasswordResetEmail(resetEmail);
+            Alert.alert(
+                'Check Your Email',
+                'If an account exists with this email, we have sent password reset instructions.',
+                [{ text: 'OK', onPress: () => setForgotPasswordModalVisible(false) }]
+            );
+        } catch (error: any) {
+            Alert.alert('Error', 'Failed to send reset email. Please try again.');
+        } finally {
+            setResetLoading(false);
+        }
+    };
+
+    const openForgotPassword = () => {
+        setResetEmail(email); // Pre-fill with current email input
+        setForgotPasswordModalVisible(true);
+    };
+
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-            <SafeAreaView style={styles.safeArea}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.keyboardView}
+        <SafeAreaView className="flex-1 bg-slate-50">
+            <StatusBar barStyle="dark-content" />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="flex-1"
+            >
+                <ScrollView
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    showsVerticalScrollIndicator={false}
+                    className="px-6"
                 >
-                    <ScrollView
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        <View style={styles.content}>
-                            {/* Brand Header */}
-                            <View style={styles.header}>
-                                <View style={styles.logoBadge}>
-                                    <MaterialCommunityIcons name="heart-pulse" size={48} color={Colors.primary} />
+                    <View className="flex-1 justify-center py-10">
+                        {/* Brand Header */}
+                        <View className="items-center mb-12">
+                            <View className="w-20 h-20 bg-white rounded-3xl items-center justify-center shadow-sm border border-slate-100 mb-6">
+                                <MaterialCommunityIcons name="heart-pulse" size={48} color="#2563EB" />
+                            </View>
+                            <Text className="text-3xl font-bold text-slate-900 tracking-tight">Nurse Learning</Text>
+                            <Text className="text-slate-600 text-lg mt-2 text-center font-medium">Your companion in excellence</Text>
+                        </View>
+
+                        {/* Form Section */}
+                        <View className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                            <View className="mb-6">
+                                <Text className="text-slate-900 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Email Address</Text>
+                                <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-4 h-14">
+                                    <MaterialCommunityIcons name="email-outline" size={20} color="#94A3B8" />
+                                    <TextInput
+                                        className="flex-1 ml-3 text-slate-900 font-medium"
+                                        placeholder="nurse@example.com"
+                                        placeholderTextColor="#94A3B8"
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                    />
                                 </View>
-                                <Text style={styles.appName}>Nurse Learning</Text>
-                                <Text style={styles.subtitle}>Welcome back to your learning space</Text>
                             </View>
 
-                            {/* Form Section */}
-                            <View style={styles.form}>
-                                <View style={styles.inputGroup}>
-                                    <View style={styles.inputContainer}>
-                                        <MaterialCommunityIcons name="email-outline" size={20} color={Colors.textLighter} style={styles.inputIcon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Email Address"
-                                            placeholderTextColor={Colors.textLighter}
-                                            value={email}
-                                            onChangeText={setEmail}
-                                            keyboardType="email-address"
-                                            autoCapitalize="none"
+                            <View className="mb-4">
+                                <Text className="text-slate-900 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Password</Text>
+                                <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-4 h-14">
+                                    <MaterialCommunityIcons name="lock-outline" size={20} color="#94A3B8" />
+                                    <TextInput
+                                        className="flex-1 ml-3 text-slate-900 font-medium"
+                                        placeholder="••••••••"
+                                        placeholderTextColor="#94A3B8"
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={!showPassword}
+                                    />
+                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                        <MaterialCommunityIcons
+                                            name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                            size={20}
+                                            color="#94A3B8"
                                         />
-                                    </View>
-                                </View>
-
-                                <View style={styles.inputGroup}>
-                                    <View style={styles.inputContainer}>
-                                        <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.textLighter} style={styles.inputIcon} />
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Password"
-                                            placeholderTextColor={Colors.textLighter}
-                                            value={password}
-                                            onChangeText={setPassword}
-                                            secureTextEntry={!showPassword}
-                                        />
-                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                                            <MaterialCommunityIcons
-                                                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                                                size={20}
-                                                color={Colors.textLighter}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TouchableOpacity style={styles.forgotBtn}>
-                                        <Text style={styles.forgotText}>Forgot password?</Text>
                                     </TouchableOpacity>
                                 </View>
-
-                                <TouchableOpacity
-                                    style={styles.button}
-                                    onPress={handleLogin}
-                                    disabled={loading}
-                                    activeOpacity={0.8}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color={Colors.white} size="small" />
-                                    ) : (
-                                        <Text style={styles.buttonText}>Sign In</Text>
-                                    )}
-                                </TouchableOpacity>
                             </View>
 
-                            {/* Footer */}
-                            <View style={styles.footer}>
-                                <Text style={styles.footerText}>Don't have an account? </Text>
-                                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                                    <Text style={styles.linkText}>Create Account</Text>
-                                </TouchableOpacity>
+                            <TouchableOpacity className="self-end mb-8" onPress={openForgotPassword}>
+                                <Text className="text-blue-600 font-bold text-sm">Forgot Password?</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                className={`bg-blue-600 h-14 rounded-xl items-center justify-center shadow-md ${loading ? 'opacity-70' : ''}`}
+                                onPress={handleLogin}
+                                disabled={loading}
+                                activeOpacity={0.8}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-bold text-lg">Sign In</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Footer */}
+                        <View className="flex-row justify-center mt-10">
+                            <Text className="text-slate-600 text-base">Don't have an account? </Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                                <Text className="text-blue-600 font-extrabold text-base">Create One</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* Forgot Password Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={forgotPasswordModalVisible}
+                onRequestClose={() => setForgotPasswordModalVisible(false)}
+            >
+                <View className="flex-1 justify-end">
+                    {/* Backdrop */}
+                    <TouchableOpacity
+                        className="absolute inset-0 bg-black/50"
+                        activeOpacity={1}
+                        onPress={() => setForgotPasswordModalVisible(false)}
+                    />
+
+                    {/* Modal Content */}
+                    <View className="bg-white rounded-t-[32px] p-8 pb-12 shadow-2xl">
+                        <View className="items-center mb-6">
+                            <View className="w-16 h-1 bg-slate-200 rounded-full mb-6" />
+                            <View className="w-14 h-14 bg-blue-100 rounded-full items-center justify-center mb-4">
+                                <MaterialCommunityIcons name="lock-reset" size={28} color="#2563EB" />
+                            </View>
+                            <Text className="text-2xl font-bold text-slate-900">Reset Password</Text>
+                            <Text className="text-slate-500 text-center mt-2 mx-4">
+                                Enter your email address and we'll send you instructions to reset your password.
+                            </Text>
+                        </View>
+
+                        <View className="mb-8">
+                            <Text className="text-slate-900 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Email Address</Text>
+                            <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-xl px-4 h-14">
+                                <MaterialCommunityIcons name="email-outline" size={20} color="#94A3B8" />
+                                <TextInput
+                                    className="flex-1 ml-3 text-slate-900 font-medium"
+                                    placeholder="nurse@example.com"
+                                    placeholderTextColor="#94A3B8"
+                                    value={resetEmail}
+                                    onChangeText={setResetEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
                             </View>
                         </View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            </SafeAreaView>
-        </View>
+
+                        <TouchableOpacity
+                            className={`bg-blue-600 h-14 rounded-xl items-center justify-center shadow-lg shadow-blue-200 ${resetLoading ? 'opacity-70' : ''}`}
+                            onPress={handleForgotPassword}
+                            disabled={resetLoading}
+                        >
+                            {resetLoading ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text className="text-white font-bold text-lg">Send Reset Link</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            className="mt-6 items-center py-2"
+                            onPress={() => setForgotPasswordModalVisible(false)}
+                        >
+                            <Text className="text-slate-500 font-bold">Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </SafeAreaView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    safeArea: {
-        flex: 1,
-    },
-    keyboardView: {
-        flex: 1,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        paddingVertical: Spacing.xxl,
-    },
-    content: {
-        paddingHorizontal: Spacing.xl,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: Spacing.xxl,
-    },
-    logoBadge: {
-        width: 80,
-        height: 80,
-        borderRadius: 24,
-        backgroundColor: Colors.white,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.lg,
-        ...Shadow.small,
-    },
-    appName: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: Colors.text,
-        letterSpacing: -0.5,
-    },
-    subtitle: {
-        fontSize: 15,
-        color: Colors.textLight,
-        marginTop: 6,
-        textAlign: 'center',
-    },
-    form: {
-        width: '100%',
-        marginTop: Spacing.xl,
-    },
-    inputGroup: {
-        marginBottom: Spacing.md,
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.white,
-        borderWidth: 1,
-        borderColor: Colors.border,
-        borderRadius: 12,
-        paddingHorizontal: Spacing.md,
-        height: 52,
-    },
-    inputIcon: {
-        marginRight: Spacing.sm,
-    },
-    input: {
-        flex: 1,
-        fontSize: 15,
-        color: Colors.text,
-    },
-    eyeIcon: {
-        padding: 4,
-    },
-    forgotBtn: {
-        paddingVertical: 8,
-        alignSelf: 'flex-end',
-    },
-    forgotText: {
-        color: Colors.primary,
-        fontSize: 13,
-        fontWeight: '600',
-    },
-    button: {
-        height: 52,
-        borderRadius: 12,
-        backgroundColor: Colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: Spacing.lg,
-        ...Shadow.small,
-    },
-    buttonText: {
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: Spacing.xxl,
-    },
-    footerText: {
-        fontSize: 14,
-        color: Colors.textLight,
-    },
-    linkText: {
-        fontSize: 14,
-        color: Colors.primary,
-        fontWeight: '700',
-    },
-});
 
 export default LoginScreen;
 

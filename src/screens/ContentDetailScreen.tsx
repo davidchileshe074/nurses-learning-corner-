@@ -1,29 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Alert, StatusBar, Image } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    Dimensions,
+    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
+    StatusBar
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Pdf from 'react-native-pdf';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { getFileUrl } from '../services/content';
+import { downloadContent, savePlaybackPosition, getPlaybackPosition, getLocalContentUri } from '../services/downloads';
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, Typography, Shadow } from '../theme';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
-const ContentDetailScreen = ({ route, navigation }: any) => {
+const ContentDetailScreen = ({ route }: any) => {
+    const navigation = useNavigation<any>();
     const { item }: { item: ContentItem } = route.params;
     const [loading, setLoading] = useState(true);
-    const audioPlayer = useAudioPlayer(item.type === 'AUDIO' ? getFileUrl(item.storageFileId) : null);
-    const videoPlayer = useVideoPlayer(item.type === 'VIDEO' ? getFileUrl(item.storageFileId) : null, (player) => {
-        player.loop = false;
-    });
+    const [downloading, setDownloading] = useState(false);
+    const [contentUri, setContentUri] = useState<string>(getFileUrl(item.storageFileId));
 
+    // Resolve local URI if available
+    useEffect(() => {
+        const checkLocal = async () => {
+            const local = await getLocalContentUri(item.$id);
+            if (local) {
+                console.log('Using local content:', local);
+                setContentUri(local);
+            }
+        };
+        checkLocal();
+    }, [item.$id]);
+
+    const audioPlayer = useAudioPlayer(item.type === 'AUDIO' ? contentUri : null);
     const status = useAudioPlayerStatus(audioPlayer);
-    const isPlaying = status.playing;
-    const duration = status.duration;
-    const position = status.currentTime;
+
+    // Resume logic
+    useEffect(() => {
+        const initPlayer = async () => {
+            if (item.type !== 'AUDIO') {
+                setLoading(false);
+                return;
+            }
+
+            const savedPosition = await getPlaybackPosition(item.$id);
+            if (savedPosition > 2000) {
+                Alert.alert(
+                    'Resume Study',
+                    'Pick up exactly where you left off?',
+                    [
+                        { text: 'Start Fresh', onPress: () => setLoading(false) },
+                        {
+                            text: 'Resume',
+                            onPress: () => {
+                                audioPlayer.seekTo(savedPosition);
+                                setLoading(false);
+                            }
+                        }
+                    ]
+                );
+            } else {
+                setLoading(false);
+            }
+        };
+        initPlayer();
+    }, []);
+
+    // Save position periodically
+    useEffect(() => {
+        if (item.type === 'AUDIO' && status.playing) {
+            savePlaybackPosition(item.$id, status.currentTime);
+        }
+    }, [status.currentTime]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -39,143 +95,136 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
         }
     };
 
+    const handleDownload = async () => {
+        setDownloading(true);
+        const success = await downloadContent(item.$id, item.title, item.type, item.storageFileId);
+        setDownloading(false);
+        if (success) {
+            Alert.alert('Securely Saved', 'This resource is now available for offline study.');
+        } else {
+            Alert.alert('Download Error', 'Could not save file. Please check your storage.');
+        }
+    };
+
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                {/* Custom Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <MaterialCommunityIcons name="chevron-left" size={32} color={Colors.text} />
+        <View className="flex-1 bg-white">
+            <StatusBar barStyle="dark-content" />
+            <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+
+                {/* Modern Ultra-Header */}
+                <View className="flex-row items-center px-6 py-4 border-b border-slate-50">
+                    <TouchableOpacity
+                        onPress={() => {
+                            if (item.type === 'AUDIO') audioPlayer.pause();
+                            navigation.goBack();
+                        }}
+                        className="w-10 h-10 items-center justify-center bg-slate-50 rounded-xl"
+                    >
+                        <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
                     </TouchableOpacity>
-                    <View style={styles.headerTitleContainer}>
-                        <Text style={styles.headerTitle} numberOfLines={1}>{item.title}</Text>
-                        <View style={styles.typeTag}>
-                            <Text style={styles.headerSubtitle}>{item.type}</Text>
+
+                    <View className="flex-1 items-center px-4">
+                        <Text className="text-sm font-black text-slate-900 uppercase tracking-tighter" numberOfLines={1}>{item.title}</Text>
+                        <View className="flex-row items-center mt-0.5">
+                            <View className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-2" />
+                            <Text className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.type.replace('_', ' ')}</Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.moreBtn}>
-                        <MaterialCommunityIcons name="bookmark-outline" size={24} color={Colors.textLight} />
+
+                    <TouchableOpacity
+                        className="w-10 h-10 items-center justify-center bg-blue-50 rounded-xl"
+                        onPress={handleDownload}
+                        disabled={downloading}
+                    >
+                        {downloading ? (
+                            <ActivityIndicator size="small" color="#2563EB" />
+                        ) : (
+                            <MaterialCommunityIcons name="cloud-download-outline" size={22} color="#2563EB" />
+                        )}
                     </TouchableOpacity>
                 </View>
 
                 {item.type === 'AUDIO' ? (
-                    <View style={styles.audioContainer}>
-                        <View style={styles.playerCard}>
+                    <View className="flex-1 bg-slate-50/50 justify-center p-8">
+                        <View className="bg-white rounded-[40px] p-8 items-center shadow-sm border border-slate-100">
+
                             <LinearGradient
-                                colors={[Colors.primary, '#1e3a8a']}
-                                style={styles.albumArt}
+                                colors={['#2563EB', '#1E40AF']}
+                                className="w-56 h-56 rounded-[48px] items-center justify-center mb-10 shadow-2xl shadow-blue-200"
                             >
-                                <MaterialCommunityIcons name="headphones" size={80} color={Colors.white} />
+                                <MaterialCommunityIcons name="headphones" size={100} color="white" />
                                 <LinearGradient
-                                    colors={['rgba(255,255,255,0.2)', 'transparent']}
-                                    style={styles.artOverlay}
+                                    colors={['rgba(255,255,255,0.15)', 'transparent']}
+                                    className="absolute inset-0 rounded-[48px]"
                                 />
                             </LinearGradient>
 
-                            <View style={styles.trackInfo}>
-                                <Text style={styles.trackTitle} numberOfLines={2}>{item.title}</Text>
-                                <Text style={styles.trackSubtitle} numberOfLines={2}>{item.description}</Text>
+                            <View className="items-center mb-10">
+                                <Text className="text-2xl font-black text-slate-900 text-center mb-2" numberOfLines={2}>{item.title}</Text>
+                                <Text className="text-slate-400 text-center font-bold text-xs uppercase tracking-widest px-4">{item.subject || 'Nursing Module'}</Text>
                             </View>
 
-                            <View style={styles.waveformContainer}>
-                                <View style={styles.progressBar}>
+                            {/* Premium Progress Bar */}
+                            <View className="w-full mb-10 px-4">
+                                <View className="h-2 bg-slate-100 rounded-full w-full mb-3 relative overflow-hidden">
                                     <View
-                                        style={[
-                                            styles.progressFill,
-                                            {
-                                                width: `${(position / duration) * 100 || 0}%`,
-                                                backgroundColor: Colors.primary
-                                            }
-                                        ]}
-                                    />
-                                    <View
-                                        style={[
-                                            styles.progressThumb,
-                                            {
-                                                left: `${(position / duration) * 100 || 0}%`,
-                                                backgroundColor: Colors.primary
-                                            }
-                                        ]}
+                                        className="h-full bg-blue-600 rounded-full"
+                                        style={{ width: `${(status.currentTime / status.duration) * 100 || 0}%` }}
                                     />
                                 </View>
-                                <View style={styles.timeRow}>
-                                    <Text style={styles.timeText}>{formatTime(position)}</Text>
-                                    <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                                <View className="flex-row justify-between">
+                                    <Text className="text-[10px] text-slate-400 font-black tracking-widest">{formatTime(status.currentTime)}</Text>
+                                    <Text className="text-[10px] text-slate-400 font-black tracking-widest">{formatTime(status.duration)}</Text>
                                 </View>
                             </View>
 
-                            <View style={styles.controls}>
-                                <TouchableOpacity
-                                    style={styles.controlBtnSmall}
-                                    onPress={() => audioPlayer.seekBy(-10000)}
-                                >
-                                    <MaterialCommunityIcons name="rewind-10" size={32} color={Colors.text} />
+                            <View className="flex-row items-center gap-10">
+                                <TouchableOpacity onPress={() => audioPlayer.seekTo(Math.max(0, audioPlayer.currentTime - 15000))} className="opacity-40">
+                                    <MaterialCommunityIcons name="rewind-15" size={40} color="#0F172A" />
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.playBtnLarge}
+                                    className="w-24 h-24 rounded-full shadow-xl shadow-blue-100"
                                     onPress={handlePlayAudio}
                                     disabled={loading}
-                                    activeOpacity={0.9}
                                 >
                                     <LinearGradient
-                                        colors={[Colors.primary, '#1e40af']}
-                                        style={styles.playBtnGradient}
+                                        colors={['#2563EB', '#1E40AF']}
+                                        className="w-full h-full items-center justify-center rounded-full"
                                     >
-                                        {loading ? (
-                                            <ActivityIndicator color={Colors.white} size="small" />
-                                        ) : (
-                                            <MaterialCommunityIcons
-                                                name={isPlaying ? "pause" : "play"}
-                                                size={42}
-                                                color={Colors.white}
-                                                style={!isPlaying && { marginLeft: 4 }}
-                                            />
-                                        )}
+                                        <MaterialCommunityIcons
+                                            name={status.playing ? "pause" : "play"}
+                                            size={48}
+                                            color="white"
+                                            style={!status.playing && { marginLeft: 6 }}
+                                        />
                                     </LinearGradient>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.controlBtnSmall}
-                                    onPress={() => audioPlayer.seekBy(10000)}
-                                >
-                                    <MaterialCommunityIcons name="fast-forward-10" size={32} color={Colors.text} />
+                                <TouchableOpacity onPress={() => audioPlayer.seekTo(audioPlayer.currentTime + 15000)} className="opacity-40">
+                                    <MaterialCommunityIcons name="fast-forward-15" size={40} color="#0F172A" />
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
-                ) : item.type === 'VIDEO' ? (
-                    <View style={styles.videoContainer}>
-                        <VideoView
-                            player={videoPlayer}
-                            style={styles.video}
-                            contentFit="contain"
-                            allowsFullscreen
-                            allowsPictureInPicture
-                        />
-                        <View style={styles.videoInfo}>
-                            <Text style={styles.videoTitle}>{item.title}</Text>
-                            <Text style={styles.videoDesc}>{item.description}</Text>
-                        </View>
-                    </View>
+
                 ) : (
-                    <View style={styles.pdfContainer}>
+                    <View className="flex-1 bg-slate-50">
                         <Pdf
-                            source={{ uri: getFileUrl(item.storageFileId), cache: true }}
+                            source={{ uri: contentUri, cache: true }}
+                            trustAllCerts={false}
                             onLoadComplete={() => setLoading(false)}
                             onError={(error) => {
                                 console.log(error);
-                                Alert.alert('Error', 'Failed to load document');
+                                Alert.alert('Studying Error', 'Failed to load document. Please check connection.');
                             }}
-                            style={styles.pdf}
+                            style={{ flex: 1, width: width, height: height, backgroundColor: '#F8FAFC' }}
                             enablePaging={true}
-                            horizontal={false}
                         />
                         {loading && (
-                            <View style={styles.loadingOverlay}>
-                                <ActivityIndicator size="large" color={Colors.primary} />
-                                <Text style={styles.loadingText}>PREPARING DOCUMENT...</Text>
+                            <View className="absolute inset-0 bg-white items-center justify-center">
+                                <ActivityIndicator size="large" color="#2563EB" />
+                                <Text className="mt-6 text-slate-400 font-bold tracking-[3px] text-[10px] uppercase">Decrypting Content</Text>
                             </View>
                         )}
                     </View>
@@ -185,204 +234,4 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.white,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.md,
-        backgroundColor: Colors.white,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
-        zIndex: 10,
-    },
-    backBtn: {
-        padding: 8,
-    },
-    headerTitleContainer: {
-        flex: 1,
-        alignItems: 'center',
-        paddingHorizontal: Spacing.md,
-    },
-    headerTitle: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: Colors.text,
-    },
-    typeTag: {
-        backgroundColor: Colors.background,
-        paddingVertical: 2,
-        paddingHorizontal: 8,
-        borderRadius: 4,
-        marginTop: 2,
-    },
-    headerSubtitle: {
-        fontSize: 9,
-        fontWeight: '900',
-        color: Colors.textLighter,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    moreBtn: {
-        padding: 8,
-    },
-    pdfContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    pdf: {
-        flex: 1,
-        width: width,
-        height: height,
-        backgroundColor: Colors.background,
-    },
-    videoContainer: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    video: {
-        width: width,
-        height: height * 0.35,
-    },
-    videoInfo: {
-        padding: Spacing.xl,
-        backgroundColor: Colors.white,
-        flex: 1,
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        marginTop: -20,
-    },
-    videoTitle: {
-        ...Typography.h2,
-        color: Colors.text,
-        marginBottom: 8,
-    },
-    videoDesc: {
-        ...Typography.body,
-        color: Colors.textLight,
-        lineHeight: 22,
-    },
-    audioContainer: {
-        flex: 1,
-        backgroundColor: Colors.background,
-        justifyContent: 'center',
-        padding: Spacing.xl,
-    },
-    playerCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 40,
-        padding: Spacing.xl,
-        alignItems: 'center',
-        ...Shadow.large,
-    },
-    albumArt: {
-        width: width * 0.5,
-        height: width * 0.5,
-        borderRadius: 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.xl,
-        position: 'relative',
-        overflow: 'hidden',
-        ...Shadow.medium,
-    },
-    artOverlay: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    trackInfo: {
-        alignItems: 'center',
-        marginBottom: Spacing.xl,
-    },
-    trackTitle: {
-        fontSize: 22,
-        fontWeight: '900',
-        color: Colors.text,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    trackSubtitle: {
-        fontSize: 14,
-        color: Colors.textLight,
-        textAlign: 'center',
-        lineHeight: 20,
-        paddingHorizontal: Spacing.md,
-    },
-    waveformContainer: {
-        width: '100%',
-        marginBottom: Spacing.xl,
-    },
-    progressBar: {
-        height: 6,
-        backgroundColor: Colors.background,
-        borderRadius: 3,
-        width: '100%',
-        marginBottom: 12,
-        position: 'relative',
-    },
-    progressFill: {
-        height: '100%',
-        borderRadius: 3,
-    },
-    progressThumb: {
-        position: 'absolute',
-        top: -5,
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        borderWidth: 3,
-        borderColor: Colors.white,
-        ...Shadow.small,
-    },
-    timeRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    timeText: {
-        fontSize: 12,
-        color: Colors.textLighter,
-        fontWeight: '700',
-    },
-    controls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 32,
-    },
-    controlBtnSmall: {
-        padding: 10,
-        opacity: 0.8,
-    },
-    playBtnLarge: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        ...Shadow.medium,
-    },
-    playBtnGradient: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        fontSize: 12,
-        fontWeight: '900',
-        color: Colors.primary,
-        marginTop: Spacing.lg,
-        letterSpacing: 2,
-    },
-});
-
 export default ContentDetailScreen;
-
-

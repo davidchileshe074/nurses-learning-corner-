@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import { getCurrentUser, signOut as appwriteSignOut } from '../services/auth';
-import { getDeviceId } from '../services/device';
+import { getDeviceId, bindDeviceToProfile } from '../services/device';
 import { Alert } from 'react-native';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
 
@@ -46,6 +46,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (currentUser) {
                 const isDeviceValid = await checkDeviceBinding(currentUser);
                 if (isDeviceValid) {
+                    if (!currentUser.deviceId) {
+                        const currentDeviceId = await getDeviceId();
+                        try {
+                            // Fetch document ID from $id since it's an Appwrite document
+                            const profileDocId = (currentUser as any).$id;
+                            await bindDeviceToProfile(profileDocId, currentDeviceId);
+                            // Update local state with new deviceId
+                            currentUser.deviceId = currentDeviceId;
+                        } catch (e) {
+                            console.error('Failed to auto-bind device:', e);
+                        }
+                    }
                     setUser(currentUser);
                 } else {
                     await appwriteSignOut();
@@ -76,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, 6 * 60 * 60 * 1000);
 
         return () => clearInterval(interval);
-    }, [user]);
+    }, []); // Run only on mount to prevent infinite loop with syncUser
 
     const signOut = async () => {
         try {

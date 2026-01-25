@@ -1,181 +1,270 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+    View,
+    Text,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    StatusBar,
+    Dimensions,
+    RefreshControl
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { getSubscriptionStatus } from '../services/subscription';
-import { Subscription } from '../types';
+import { getContent } from '../services/content';
+import { ContentItem, Subject } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, Typography, Shadow } from '../theme';
 import { formatProgram, formatYear } from '../utils/formatters';
+import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getSubscriptionStatus } from '../services/subscription';
+import { Subscription, AppNotification } from '../types';
+import { checkAndGenerateNotifications, getNotifications } from '../services/notifications';
 
 const { width } = Dimensions.get('window');
 
-const HomeScreen = ({ navigation }: any) => {
+const HomeScreen = () => {
+    const navigation = useNavigation<any>();
     const { user } = useAuth();
+    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [stats, setStats] = useState({ totalItems: 0, subjectsCount: 0 });
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [hasUnread, setHasUnread] = useState(false);
+
+    const fetchData = useCallback(async (isInitial = false) => {
+        if (!user) return;
+        if (isInitial) setLoading(true);
+        else setRefreshing(true);
+
+        try {
+            const [content, subStatus] = await Promise.all([
+                getContent(user.program, user.yearOfStudy),
+                getSubscriptionStatus(user.userId)
+            ]);
+
+            const uniqueSubjects = [...new Set(content.map(item => item.subject).filter(Boolean))] as Subject[];
+
+            setSubjects(uniqueSubjects);
+            setSubscription(subStatus);
+            setStats({
+                totalItems: content.length,
+                subjectsCount: uniqueSubjects.length
+            });
+
+            // Check for notifications
+            await checkAndGenerateNotifications(user, subStatus);
+            const notifications = await getNotifications();
+            setHasUnread(notifications.some(n => !n.isRead));
+        } catch (error) {
+            console.error('[Home] Fetch Error:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [user]);
 
     useEffect(() => {
-        const fetchSubscription = async () => {
-            if (user) {
-                try {
-                    const sub = await getSubscriptionStatus(user.userId);
-                    setSubscription(sub);
-                } catch (error) {
-                    console.error('Fetch subscription error:', error);
-                } finally {
-                    setLoading(false);
-                }
-            }
-        };
+        fetchData(true);
+    }, [user?.program, user?.yearOfStudy]);
 
-        fetchSubscription();
-    }, [user]);
+    const daysRemaining = useMemo(() => {
+        if (!subscription?.endDate) return null;
+        const expiryDate = new Date(subscription.endDate);
+        const now = new Date();
+        const diffTime = expiryDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 0 ? diffDays : 0;
+    }, [subscription]);
 
     if (loading) {
         return (
-            <View style={styles.center}>
-                <ActivityIndicator size="small" color={Colors.primary} />
+            <View className="flex-1 justify-center items-center bg-white">
+                <ActivityIndicator size="large" color="#2563EB" />
+                <Text className="mt-4 text-slate-400 font-bold tracking-[3px] text-[10px] uppercase">Preparing Dashboard</Text>
             </View>
         );
     }
 
-    const isSubscribed = subscription?.status === 'ACTIVE' && new Date(subscription.endDate) > new Date();
+    const firstName = user?.fullName?.split(' ')[0] || 'Student';
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {/* Header Section */}
-                    <View style={styles.header}>
+        <View className="flex-1 bg-slate-50">
+            <StatusBar barStyle="dark-content" />
+            <SafeAreaView className="flex-1" edges={['top']}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    className="flex-1"
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={fetchData} colors={["#2563EB"]} />
+                    }
+                >
+                    {/* Top Header */}
+                    <View className="px-6 py-8 flex-row justify-between items-center">
                         <View>
-                            <Text style={styles.greeting}>Good Morning,</Text>
-                            <Text style={styles.userName}>{user?.fullName?.split(' ')[0]}</Text>
+                            <Text className="text-slate-500 text-sm font-black uppercase tracking-[2px] mb-1">Nursing Excellence</Text>
+                            <Text className="text-3xl font-black text-slate-900 tracking-tighter">Hi, {firstName} 👋</Text>
                         </View>
                         <TouchableOpacity
-                            style={styles.avatarWrapper}
                             onPress={() => navigation.navigate('Account')}
+                            className="w-14 h-14 bg-white rounded-3xl items-center justify-center shadow-sm border border-slate-100 relative"
                         >
-                            <LinearGradient
-                                colors={[Colors.primary, '#1e40af']}
-                                style={styles.avatarGradient}
-                            >
-                                <Text style={styles.avatarText}>{user?.fullName?.charAt(0)}</Text>
-                            </LinearGradient>
+                            <MaterialCommunityIcons name="account" size={28} color="#2563EB" />
+                            {hasUnread && (
+                                <View className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                            )}
                         </TouchableOpacity>
                     </View>
 
-                    {/* Subscription Dashboard Card */}
-                    <View style={styles.dashboardContainer}>
-                        <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => navigation.navigate('Account')}
+                    {/* Program Status Hero - Unified Brand Style */}
+                    <View className="px-6 mb-10">
+                        <LinearGradient
+                            colors={['#2563EB', '#172554']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            className="p-8 rounded-[38px] shadow-2xl shadow-blue-200 relative overflow-hidden"
                         >
-                            <LinearGradient
-                                colors={isSubscribed ? [Colors.primary, '#1e3a8a'] : ['#334155', '#1e293b']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.mainCard}
-                            >
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.iconCircle}>
-                                        <MaterialCommunityIcons
-                                            name={isSubscribed ? "check-decagram" : "alert-decagram"}
-                                            size={20}
-                                            color={isSubscribed ? Colors.primary : '#94a3b8'}
-                                        />
+                            {/* Unified Background Detail */}
+                            <View className="absolute -bottom-2 -right-2 opacity-[0.03]">
+                                <MaterialCommunityIcons name="shield-check" size={140} color="white" />
+                            </View>
+
+                            <View className="relative z-10">
+                                <View className="flex-row justify-between items-start mb-4">
+                                    <View className="flex-row items-center">
+                                        <View className="bg-blue-500/20 px-3 py-1 rounded-xl mr-2">
+                                            <Text className="text-blue-400 font-black text-[10px] uppercase tracking-[2px]">Active Enrollment</Text>
+                                        </View>
+                                        {daysRemaining !== null && (
+                                            <View className="bg-white/10 px-2.5 py-1 rounded-xl">
+                                                <Text className="text-blue-300 font-black text-[9px] uppercase tracking-widest">{daysRemaining} Days Left</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                    <Text style={styles.cardTitle}>PORTAL ACCESS</Text>
+                                    <MaterialCommunityIcons name="shield-check" size={24} color="rgba(255,255,255,0.4)" />
                                 </View>
 
-                                <Text style={styles.statusLabel}>{isSubscribed ? 'Premium Academic' : 'Standard Access'}</Text>
-
-                                {isSubscribed ? (
-                                    <View style={styles.expiryRow}>
-                                        <MaterialCommunityIcons name="calendar-clock" size={14} color="rgba(255,255,255,0.7)" />
-                                        <Text style={styles.expiryText}>Membership expires: {new Date(subscription!.endDate).toLocaleDateString()}</Text>
-                                    </View>
-                                ) : (
-                                    <View style={styles.renewAction}>
-                                        <Text style={styles.renewActionText}>Unlock All Resources</Text>
-                                        <MaterialCommunityIcons name="arrow-right" size={16} color={Colors.white} />
-                                    </View>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <Text className="text-white text-3xl font-black mb-2 tracking-tighter leading-tight" numberOfLines={2}>
+                                    {user?.program ? formatProgram(user.program) : 'Loading...'}
+                                </Text>
+                                <Text className="text-slate-300 font-medium text-sm leading-6">
+                                    {user?.yearOfStudy ? `Academic Year ${formatYear(user.yearOfStudy)}` : ''}
+                                </Text>
+                            </View>
+                        </LinearGradient>
                     </View>
 
-                    {/* Quick Stats Grid */}
-                    <View style={styles.statsGrid}>
-                        <View style={styles.statBox}>
-                            <View style={[styles.statIcon, { backgroundColor: `${Colors.primary}15` }]}>
-                                <MaterialCommunityIcons name="book-open-variant" size={20} color={Colors.primary} />
+                    {/* Quick Access Grid */}
+                    <View className="px-6 mb-8">
+                        <View className="flex-row justify-between items-end mb-6 px-1">
+                            <View>
+                                <Text className="text-slate-900 text-2xl font-black tracking-tight">Your Modules</Text>
+                                <Text className="text-slate-400 text-xs font-bold mt-1">Explore specialized nursing content</Text>
                             </View>
-                            <Text style={styles.statValue}>12</Text>
-                            <Text style={styles.statLabel}>Resources</Text>
-                        </View>
-                        <View style={styles.statBox}>
-                            <View style={[styles.statIcon, { backgroundColor: '#F0FDF4' }]}>
-                                <MaterialCommunityIcons name="download" size={20} color="#16A34A" />
-                            </View>
-                            <Text style={styles.statValue}>5</Text>
-                            <Text style={styles.statLabel}>Saved</Text>
-                        </View>
-                        <View style={styles.statBox}>
-                            <View style={[styles.statIcon, { backgroundColor: '#FFF7ED' }]}>
-                                <MaterialCommunityIcons name="clock-outline" size={20} color="#EA580C" />
-                            </View>
-                            <Text style={styles.statValue}>24h</Text>
-                            <Text style={styles.statLabel}>Activity</Text>
-                        </View>
-                    </View>
-
-                    {/* My Program Section */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionHeading}>Your Education</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('Account')}>
-                                <Text style={styles.editLink}>Update</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Library')}>
+                                <Text className="text-brand font-black text-sm uppercase tracking-wider">Expand All</Text>
                             </TouchableOpacity>
                         </View>
-                        <View style={styles.programCard}>
-                            <LinearGradient
-                                colors={['#F1F5F9', '#F8FAFC']}
-                                style={styles.programIcon}
-                            >
-                                <MaterialCommunityIcons name="school" size={24} color={Colors.primary} />
-                            </LinearGradient>
-                            <View style={styles.programInfo}>
-                                <Text style={styles.programName}>{formatProgram(user?.program!)}</Text>
-                                <View style={styles.yearBadge}>
-                                    <Text style={styles.yearBadgeText}>ACADEMIC YEAR {formatYear(user?.yearOfStudy!)}</Text>
-                                </View>
+
+                        {subjects.length > 0 ? (
+                            <View className="flex-row flex-wrap justify-between">
+                                {subjects.map((subject, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        onPress={() => navigation.navigate('Library', { subject })}
+                                        className="bg-white w-[48.5%] p-5 rounded-[32px] shadow-sm shadow-blue-100 border border-blue-100 mb-4"
+                                    >
+                                        <View className="w-12 h-12 rounded-2xl items-center justify-center mb-4 bg-blue-50 border border-blue-100">
+                                            <MaterialCommunityIcons
+                                                name={getSubjectIcon(subject)}
+                                                size={26}
+                                                color="#2563EB"
+                                            />
+                                        </View>
+
+                                        <Text className="text-blue-400 text-[10px] font-black uppercase tracking-[2px] mb-1">
+                                            Module
+                                        </Text>
+
+                                        <Text className="text-slate-800 font-black text-sm leading-5 mb-2" numberOfLines={2}>
+                                            {subject}
+                                        </Text>
+
+                                        <View className="flex-row items-center mt-auto">
+                                            <View className="w-1.5 h-1.5 rounded-full mr-2 bg-blue-500" />
+                                            <Text className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                                View Content
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
-                        </View>
+                        ) : (
+                            <View className="bg-white p-12 rounded-[40px] border border-slate-200 border-dashed items-center">
+                                <View className="w-20 h-20 bg-slate-50 rounded-full items-center justify-center mb-6">
+                                    <MaterialCommunityIcons name="book-open-variant" size={36} color="#CBD5E1" />
+                                </View>
+                                <Text className="text-slate-900 font-black text-lg text-center">Curriculum Pending</Text>
+                                <Text className="text-slate-500 text-sm text-center mt-2 leading-5">Our academic team is curating modules for your level. Check back soon!</Text>
+                            </View>
+                        )}
                     </View>
 
-                    {/* Main Action Section */}
-                    <View style={styles.actionSection}>
-                        <TouchableOpacity
-                            activeOpacity={0.85}
-                            onPress={() => navigation.navigate('Library')}
-                        >
-                            <LinearGradient
-                                colors={[Colors.primary, '#1e40af']}
-                                style={styles.ctaCard}
-                            >
-                                <View style={styles.ctaInfo}>
-                                    <Text style={styles.ctaTitle}>Enter Study Library</Text>
-                                    <Text style={styles.ctaDesc}>Access all interactive modules and nursing materials</Text>
+                    {/* Medical Term of the Day - Replaces Ward Companion */}
+                    <View className="px-6 mb-12">
+                        {(() => {
+                            const terms = [
+                                { term: 'Tachycardia', def: 'A heart rate that exceeds the normal resting rate, usually over 100 beats per minute.' },
+                                { term: 'Bradycardia', def: 'A slower than normal heart rate, typically fewer than 60 beats per minute at rest.' },
+                                { term: 'Dyspnea', def: 'Difficult or labored breathing; often described as intense tightening in the chest.' },
+                                { term: 'Ischemia', def: 'An inadequate blood supply to an organ or part of the body, especially the heart muscles.' },
+                                { term: 'Cyanosis', def: 'A bluish discoloration of the skin resulting from poor circulation or inadequate oxygenation.' },
+                                { term: 'Edema', def: 'Swelling caused by excess fluid trapped in your body\'s tissues, often in legs or hands.' },
+                                { term: 'Syncope', def: 'A temporary loss of consciousness caused by a fall in blood pressure; fainting.' },
+                                { term: 'Pruritus', def: 'Severe itching of the skin, which can be a symptom of various medical conditions.' },
+                                { term: 'Aphasia', def: 'A language disorder that affects a person\'s ability to communicate and understand speech.' },
+                                { term: 'Hypoxia', def: 'A condition in which the body or a region of the body is deprived of adequate oxygen supply.' },
+                                { term: 'Hemostasis', def: 'The stopping of a flow of blood; the first stage of wound healing.' },
+                                { term: 'Anuria', def: 'The failure of the kidneys to produce urine, often a sign of acute kidney injury.' },
+                                { term: 'Polyuria', def: 'The production of abnormally large volumes of dilute urine, common in diabetes.' },
+                                { term: 'Atrophy', def: 'The partial or complete wasting away of a part of the body or tissue.' },
+                            ];
+
+                            // Date-stable rotation (changes every 24 hours)
+                            const today = new Date();
+                            const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+                            const dailyTerm = terms[seed % terms.length];
+
+                            return (
+                                <View className="relative">
+                                    <LinearGradient
+                                        colors={['#3B82F6', '#2563EB']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        className="p-8 rounded-[38px] shadow-2xl shadow-blue-200"
+                                    >
+                                        <View className="flex-row justify-between items-start mb-4">
+                                            <View className="bg-blue-500/20 px-3 py-1 rounded-xl">
+                                                <Text className="text-blue-400 font-black text-[10px] uppercase tracking-[2px]">Daily Insight</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="molecule" size={24} color="rgba(255,255,255,0.4)" />
+                                        </View>
+
+                                        <Text className="text-white font-black text-2xl mb-2 tracking-tight">
+                                            {dailyTerm.term}
+                                        </Text>
+                                        <Text className="text-slate-300 font-medium text-sm leading-6">
+                                            {dailyTerm.def}
+                                        </Text>
+
+                                        <View className="absolute -bottom-2 -right-2 opacity-[0.03]">
+                                            <MaterialCommunityIcons name="medical-bag" size={140} color="white" />
+                                        </View>
+                                    </LinearGradient>
                                 </View>
-                                <View style={styles.ctaIcon}>
-                                    <MaterialCommunityIcons name="arrow-right-circle" size={32} color={Colors.white} />
-                                </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                            );
+                        })()}
                     </View>
                 </ScrollView>
             </SafeAreaView>
@@ -183,247 +272,17 @@ const HomeScreen = ({ navigation }: any) => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F8FAFC',
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-    },
-    scrollContent: {
-        paddingBottom: Spacing.xl,
-    },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.lg,
-        paddingBottom: Spacing.xl,
-    },
-    greeting: {
-        fontSize: 14,
-        color: Colors.textLighter,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    userName: {
-        ...Typography.h1,
-        color: Colors.text,
-        fontWeight: '900',
-    },
-    avatarWrapper: {
-        ...Shadow.medium,
-    },
-    avatarGradient: {
-        width: 52,
-        height: 52,
-        borderRadius: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    avatarText: {
-        color: Colors.white,
-        fontSize: 20,
-        fontWeight: '800',
-    },
-    dashboardContainer: {
-        paddingHorizontal: Spacing.xl,
-        marginBottom: Spacing.xl,
-    },
-    mainCard: {
-        borderRadius: 24,
-        padding: Spacing.xl,
-        ...Shadow.medium,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Spacing.md,
-    },
-    iconCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cardTitle: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 12,
-        fontWeight: '800',
-        marginLeft: 10,
-        letterSpacing: 1,
-    },
-    statusLabel: {
-        color: Colors.white,
-        fontSize: 26,
-        fontWeight: '900',
-        marginBottom: Spacing.lg,
-    },
-    expiryRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        alignSelf: 'flex-start',
-    },
-    expiryText: {
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: 12,
-        fontWeight: '600',
-        marginLeft: 6,
-    },
-    renewAction: {
-        backgroundColor: Colors.white,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 8,
-    },
-    renewActionText: {
-        color: '#1e293b',
-        fontWeight: '800',
-        fontSize: 14,
-        textTransform: 'uppercase',
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.xl,
-        marginBottom: Spacing.xl,
-    },
-    statBox: {
-        backgroundColor: Colors.white,
-        width: (width - (Spacing.xl * 2 + Spacing.md * 2)) / 3,
-        padding: Spacing.md,
-        borderRadius: 20,
-        alignItems: 'center',
-        ...Shadow.small,
-        borderWidth: 1,
-        borderColor: Colors.borderLight,
-    },
-    statIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.sm,
-    },
-    statValue: {
-        fontSize: 18,
-        fontWeight: '900',
-        color: Colors.text,
-    },
-    statLabel: {
-        fontSize: 11,
-        color: Colors.textLighter,
-        fontWeight: '700',
-        marginTop: 2,
-        textTransform: 'uppercase',
-    },
-    section: {
-        paddingHorizontal: Spacing.xl,
-        marginBottom: Spacing.xl,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: Spacing.md,
-    },
-    sectionHeading: {
-        fontSize: 18,
-        fontWeight: '900',
-        color: Colors.text,
-    },
-    editLink: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
-    programCard: {
-        backgroundColor: Colors.white,
-        borderRadius: 20,
-        padding: Spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        ...Shadow.small,
-        borderWidth: 1,
-        borderColor: Colors.borderLight,
-    },
-    programIcon: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    programInfo: {
-        marginLeft: Spacing.md,
-        flex: 1,
-    },
-    programName: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: Colors.text,
-    },
-    yearBadge: {
-        backgroundColor: Colors.primary + '10',
-        paddingVertical: 2,
-        paddingHorizontal: 8,
-        borderRadius: 6,
-        alignSelf: 'flex-start',
-        marginTop: 4,
-    },
-    yearBadgeText: {
-        color: Colors.primary,
-        fontSize: 10,
-        fontWeight: '900',
-        letterSpacing: 0.5,
-    },
-    actionSection: {
-        paddingHorizontal: Spacing.xl,
-    },
-    ctaCard: {
-        borderRadius: 24,
-        padding: Spacing.xl,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        ...Shadow.medium,
-    },
-    ctaInfo: {
-        flex: 1,
-        paddingRight: Spacing.md,
-    },
-    ctaTitle: {
-        color: Colors.white,
-        fontSize: 20,
-        fontWeight: '900',
-    },
-    ctaDesc: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 13,
-        fontWeight: '600',
-        marginTop: 4,
-    },
-    ctaIcon: {
-        opacity: 0.9,
-    },
-});
+const getSubjectIcon = (subject: string): any => {
+    const s = subject.toLowerCase();
+    if (s.includes('anatomy')) return 'bone';
+    if (s.includes('nurs')) return 'medical-bag';
+    if (s.includes('pharmacology')) return 'pill';
+    if (s.includes('physio')) return 'heart-pulse';
+    if (s.includes('bio')) return 'microscope';
+    if (s.includes('psych')) return 'brain';
+    if (s.includes('medic')) return 'hospital-box-outline';
+    if (s.includes('math')) return 'calculator';
+    return 'book-open-blank-variant';
+};
 
 export default HomeScreen;
-
-

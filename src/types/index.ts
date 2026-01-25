@@ -1,7 +1,8 @@
 // API Consistency: Match dashboard constants exactly
-export type Program = 'G-NURSING' | 'MIDWIFERY' | 'PUBLIC-HEALTH' | 'MENTAL-HEALTH';
+export type Program = 'REGISTERED-NURSING' | 'MIDWIFERY' | 'PUBLIC-HEALTH' | 'MENTAL-HEALTH' | 'ONCOLOGY' | 'PAEDIATRIC';
 export type YearOfStudy = 'YEAR1' | 'YEAR2' | 'YEAR3';
-export type ContentType = 'PDF' | 'AUDIO' | 'VIDEO' | 'PAST_PAPER';
+export type Subject = string;
+export type ContentType = 'PDF' | 'AUDIO' | 'MARKING_KEY' | 'PAST_PAPER';
 export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED';
 
 export interface UserProfile {
@@ -15,6 +16,18 @@ export interface UserProfile {
     verified: boolean;
     adminApproved: boolean;
     deviceId?: string;
+    avatarUrl?: string;
+    avatarFileId?: string;
+    lastNotificationCheck?: string;
+}
+
+export interface AppNotification {
+    id: string;
+    title: string;
+    message: string;
+    date: string;
+    type: 'CONTENT' | 'SUBSCRIPTION' | 'SYSTEM';
+    isRead: boolean;
 }
 
 export interface Subscription {
@@ -32,6 +45,7 @@ export interface ContentItem {
     type: ContentType;
     yearOfStudy: YearOfStudy;
     program: Program;
+    subject?: Subject;
     storageFileId: string;
     durationSeconds?: number;
 }

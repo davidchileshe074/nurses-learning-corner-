@@ -1,39 +1,45 @@
 import { Query } from 'react-native-appwrite';
 import { databases, APPWRITE_CONFIG } from './appwriteClient';
-import { ContentItem, Program, YearOfStudy } from '../types';
+import { ContentItem, Program, YearOfStudy, Subject } from '../types';
 
-export const getContent = async (program: Program, yearOfStudy: any): Promise<ContentItem[]> => {
+export const getContent = async (program?: Program, yearOfStudy?: any, subject?: Subject, type?: string): Promise<ContentItem[]> => {
     try {
-        if (!program || !yearOfStudy) return [];
+        const queries = [];
 
-        // Ensure yearOfStudy is a valid number
-        let yearNum = parseInt(yearOfStudy);
-
-        // Handle cases where yearOfStudy might be a string like "Year 1"
-        if (isNaN(yearNum) && typeof yearOfStudy === 'string') {
-            const match = yearOfStudy.match(/\d+/);
-            if (match) yearNum = parseInt(match[0]);
+        if (program) {
+            const programsToQuery: string[] = [program];
+            if (program === 'REGISTERED-NURSING') {
+                programsToQuery.push('G-NURSING');
+                programsToQuery.push('RN');
+            }
+            queries.push(Query.equal('program', programsToQuery));
         }
 
-        if (isNaN(yearNum)) {
-            console.error('Invalid yearOfStudy format:', yearOfStudy);
-            return [];
+        if (yearOfStudy) {
+            const yearDigit = yearOfStudy.replace(/\D/g, '');
+            queries.push(Query.equal('yearOfStudy', [yearOfStudy, yearDigit, `year${yearDigit}`]));
+        }
+
+        if (subject) {
+            queries.push(Query.equal('subject', subject));
+        }
+
+        if (type && type !== 'All') {
+            const filterType = type.toUpperCase().trim().replace(/\s+/g, '_');
+            queries.push(Query.equal('type', filterType));
         }
 
         const result = await databases.listDocuments(
             APPWRITE_CONFIG.databaseId,
             APPWRITE_CONFIG.contentCollectionId,
-            [
-                Query.equal('program', program),
-                Query.equal('yearOfStudy', yearNum.toString()) // Appwrite expects a string if the attribute is defined as a string
-            ]
+            queries
         );
-
 
         return result.documents as unknown as ContentItem[];
     } catch (error: any) {
         if (error.code === 401 || error.code === 403) {
-            console.warn('Content access restricted. Check collection permissions.');
+            console.warn(`[AUTH ERROR] Content access restricted for collection '${APPWRITE_CONFIG.contentCollectionId}'. Code: ${error.code}`);
+            console.warn('Check if "Users" have "Read" permissions in Appwrite Console.');
         } else {
             console.error('Get content error:', error);
         }
@@ -44,5 +50,5 @@ export const getContent = async (program: Program, yearOfStudy: any): Promise<Co
 
 export const getFileUrl = (fileId: string): string => {
     // Replace with your Appwrite project endpoint and bucket ID
-    return `https://fra.cloud.appwrite.io/v1/storage/buckets/${APPWRITE_CONFIG.storageBucketId}/files/${fileId}/view?project=691d352300367a9ca3ac`;
+    return `https://fra.cloud.appwrite.io/v1/storage/buckets/${APPWRITE_CONFIG.storageBucketId}/files/${fileId}/view?project=${APPWRITE_CONFIG.projectId}`;
 };

@@ -1,107 +1,147 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+    View,
+    Text,
+    FlatList,
+    TouchableOpacity,
+    Alert,
+    StatusBar,
+    ActivityIndicator,
+    Dimensions
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLocalDownloads } from '../services/downloads';
 import { useAuth } from '../context/AuthContext';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, Typography, Shadow } from '../theme';
+import { useNavigation } from '@react-navigation/native';
 
-const DownloadsScreen = ({ navigation }: any) => {
+const { width } = Dimensions.get('window');
+
+const DownloadsScreen = () => {
+    const navigation = useNavigation<any>();
     const { user } = useAuth();
     const [downloads, setDownloads] = useState<any[]>([]);
     const [isSubscribed, setIsSubscribed] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const checkSub = async () => {
+    const initDownloads = useCallback(async () => {
+        try {
             if (user) {
                 const sub = await getSubscriptionStatus(user.userId);
                 setIsSubscribed(checkSubscriptionExpiry(sub));
             }
-        };
-
-        const fetchDownloads = async () => {
             const local = await getLocalDownloads();
             setDownloads(local);
-        };
+        } catch (error) {
+            console.error('[Downloads] Init Error:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
 
-        checkSub();
-        fetchDownloads();
-
-        const unsubscribe = navigation.addListener('focus', () => {
-            fetchDownloads();
-            checkSub();
-        });
-
+    useEffect(() => {
+        initDownloads();
+        const unsubscribe = navigation.addListener('focus', initDownloads);
         return unsubscribe;
-    }, [navigation, user]);
+    }, [navigation, initDownloads]);
 
     const handleOpen = (item: any) => {
         if (!isSubscribed) {
-            Alert.alert('Subscription Expired', 'Please renew your subscription to access downloaded content.');
+            Alert.alert(
+                'Access Restricted',
+                'Your subscription has expired. Please renew to access your downloaded materials.',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'Go to Account', onPress: () => navigation.navigate('Account') }
+                ]
+            );
             return;
         }
-        navigation.navigate('ContentDetail', { item: { ...item, storageFileId: item.localUri.split('/').pop() } });
+        navigation.navigate('ContentDetail', {
+            item: {
+                ...item,
+                storageFileId: item.localUri.split('/').pop(),
+                $id: item.id // Ensure ID matching
+            }
+        });
     };
 
     const renderItem = ({ item }: { item: any }) => {
-        let iconName: any = "file-document-outline";
-        let iconColor = Colors.primary;
+        let icon: any = "file-document-outline";
+        let color = "#2563EB"; // Blue
 
         if (item.type === 'AUDIO') {
-            iconName = "headphones";
-            iconColor = "#8b5cf6";
-        } else if (item.type === 'VIDEO') {
-            iconName = "play-circle-outline";
-            iconColor = "#ef4444";
-        } else if (item.type === 'NOTES') {
-            iconName = "file-document-outline";
-            iconColor = Colors.primary;
+            icon = "headphones";
+            color = "#4F46E5"; // indigo
+        } else if (item.type === 'MARKING_KEY') {
+            icon = "check-decagram-outline";
+            color = "#0284C7"; // sky
+        } else if (item.type === 'PAST_PAPER') {
+            icon = "file-question-outline";
+            color = "#0891B2"; // cyan
         }
 
         return (
             <TouchableOpacity
-                style={styles.downloadItem}
+                className="bg-white p-5 rounded-[32px] mb-4 flex-row items-center shadow-sm border border-slate-100"
                 onPress={() => handleOpen(item)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
             >
-                <View style={[styles.iconContainer, { backgroundColor: `${iconColor}10` }]}>
-                    <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
+                <View
+                    className="w-16 h-16 rounded-2xl items-center justify-center mr-4"
+                    style={{ backgroundColor: `${color}10` }}
+                >
+                    <MaterialCommunityIcons name={icon} size={30} color={color} />
                 </View>
 
-                <View style={styles.itemInfo}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                    <View style={styles.metaRow}>
-                        <View style={styles.expiryBadge}>
-                            <MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textLighter} />
-                            <Text style={styles.itemExpiry}>Expires: {new Date(item.expiryDate).toLocaleDateString()}</Text>
+                <View className="flex-1">
+                    <Text className="text-slate-900 font-black text-base mb-1" numberOfLines={1}>{item.title}</Text>
+                    <View className="flex-row items-center">
+                        <View className="bg-slate-50 px-2 py-0.5 rounded-md mr-2 border border-slate-100 flex-row items-center">
+                            <MaterialCommunityIcons name="clock-outline" size={10} color="#94A3B8" />
+                            <Text className="text-[9px] text-slate-400 ml-1 font-black uppercase">
+                                Saved: {new Date(item.expiryDate).toLocaleDateString()}
+                            </Text>
                         </View>
-                        <View style={[styles.typeBadge, { backgroundColor: `${iconColor}15` }]}>
-                            <Text style={[styles.typeBadgeText, { color: iconColor }]}>{item.type}</Text>
+                        <View className="px-2 py-0.5 rounded-md" style={{ backgroundColor: `${color}15` }}>
+                            <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: color }}>
+                                {item.type}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
-                <View style={styles.actionIcon}>
-                    <MaterialCommunityIcons name="arrow-right-circle-outline" size={24} color={Colors.border} />
+                <View className="ml-2 opacity-20">
+                    <MaterialCommunityIcons name="chevron-right" size={24} color="#0F172A" />
                 </View>
             </TouchableOpacity>
         );
     };
 
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+    if (loading) {
+        return (
+            <View className="flex-1 justify-center items-center bg-white">
+                <ActivityIndicator size="large" color="#2563EB" />
+                <Text className="mt-4 text-slate-400 font-bold tracking-[3px] text-[10px] uppercase">Accessing Vault</Text>
+            </View>
+        );
+    }
 
-            <View style={styles.header}>
+    return (
+        <View className="flex-1 bg-slate-50">
+            <StatusBar barStyle="dark-content" />
+
+            <View className="bg-white px-6 pb-8 border-b border-slate-100 shadow-sm">
                 <SafeAreaView edges={['top']}>
-                    <View style={styles.headerContent}>
-                        <Text style={styles.title}>Downloads</Text>
-                        <View style={styles.statusRow}>
-                            <View style={styles.dot} />
-                            <Text style={styles.subtitle}>OFFLINE MODE READY</Text>
-                        </View>
+                    <Text className="text-slate-400 text-xs font-black uppercase tracking-[3px] mb-1">Offline Access</Text>
+                    <Text className="text-3xl font-black text-slate-900 tracking-tighter">My Downloads</Text>
+
+                    <View className="flex-row items-center mt-4 bg-sky-50 self-start px-3 py-1.5 rounded-xl border border-sky-100">
+                        <View className="w-2 h-2 rounded-full bg-sky-500 mr-2" />
+                        <Text className="text-[10px] font-black text-sky-700 uppercase tracking-widest">
+                            {downloads.length} Materials Encrypted Locally
+                        </Text>
                     </View>
                 </SafeAreaView>
             </View>
@@ -110,25 +150,23 @@ const DownloadsScreen = ({ navigation }: any) => {
                 data={downloads}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<View style={{ height: Spacing.md }} />}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <LinearGradient
-                            colors={['#f1f5f9', '#e2e8f0']}
-                            style={styles.emptyIconCircle}
-                        >
-                            <MaterialCommunityIcons name="cloud-download-outline" size={64} color={Colors.border} />
-                        </LinearGradient>
-                        <Text style={styles.emptyText}>No local materials</Text>
-                        <Text style={styles.emptySubText}>Content you download for offline use will be stored here securely.</Text>
+                    <View className="items-center mt-20 px-10">
+                        <View className="w-32 h-32 bg-white rounded-[40px] items-center justify-center mb-8 shadow-sm border border-slate-100">
+                            <MaterialCommunityIcons name="cloud-download-outline" size={50} color="#CBD5E1" />
+                        </View>
+                        <Text className="text-2xl font-black text-slate-900 text-center mb-3">Vault is Empty</Text>
+                        <Text className="text-slate-500 text-center font-medium leading-6 mb-10">
+                            Materials you download for offline study will be securely stored here.
+                        </Text>
 
                         <TouchableOpacity
-                            style={styles.browseBtn}
+                            className="bg-blue-600 px-10 py-4 rounded-[24px] shadow-xl shadow-blue-200"
                             onPress={() => navigation.navigate('Library')}
                         >
-                            <Text style={styles.browseBtnText}>Browse Library</Text>
+                            <Text className="text-white font-black uppercase tracking-[2px] text-xs">Browse Library</Text>
                         </TouchableOpacity>
                     </View>
                 }
@@ -136,151 +174,5 @@ const DownloadsScreen = ({ navigation }: any) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    header: {
-        backgroundColor: Colors.white,
-        paddingBottom: Spacing.md,
-        ...Shadow.small,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
-    },
-    headerContent: {
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.sm,
-    },
-    title: {
-        ...Typography.h1,
-        color: Colors.text,
-        fontWeight: '900',
-    },
-    statusRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: Colors.success,
-        marginRight: 6,
-    },
-    subtitle: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: Colors.textLight,
-        letterSpacing: 1,
-    },
-    list: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.xxl,
-    },
-    downloadItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.white,
-        padding: Spacing.md,
-        borderRadius: 20,
-        marginBottom: Spacing.md,
-        ...Shadow.small,
-        borderWidth: 1,
-        borderColor: Colors.borderLight,
-    },
-    iconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Spacing.md,
-    },
-    itemInfo: {
-        flex: 1,
-    },
-    itemTitle: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: Colors.text,
-        marginBottom: 4,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    expiryBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.background,
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRadius: 6,
-        gap: 4,
-    },
-    itemExpiry: {
-        fontSize: 10,
-        color: Colors.textLighter,
-        fontWeight: '600',
-    },
-    typeBadge: {
-        paddingVertical: 2,
-        paddingHorizontal: 8,
-        borderRadius: 6,
-    },
-    typeBadgeText: {
-        fontSize: 10,
-        fontWeight: '900',
-        textTransform: 'uppercase',
-    },
-    actionIcon: {
-        marginLeft: Spacing.sm,
-        opacity: 0.5,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: 60,
-        paddingHorizontal: Spacing.xxl,
-    },
-    emptyIconCircle: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.xl,
-    },
-    emptyText: {
-        ...Typography.h2,
-        color: Colors.text,
-        textAlign: 'center',
-    },
-    emptySubText: {
-        ...Typography.bodySmall,
-        color: Colors.textLighter,
-        textAlign: 'center',
-        marginTop: 8,
-        lineHeight: 20,
-        marginBottom: Spacing.xxl,
-    },
-    browseBtn: {
-        backgroundColor: Colors.primary,
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 14,
-        ...Shadow.small,
-    },
-    browseBtnText: {
-        color: Colors.white,
-        fontWeight: '800',
-        fontSize: 14,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-});
 
 export default DownloadsScreen;

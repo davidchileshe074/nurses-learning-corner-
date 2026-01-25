@@ -1,23 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, StatusBar, ScrollView } from 'react-native';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    TextInput,
+    Alert,
+    ActivityIndicator,
+    StatusBar,
+    ScrollView,
+    Image,
+    Dimensions
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { getSubscriptionStatus, redeemAccessCode } from '../services/subscription';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, Typography, Shadow } from '../theme';
 import { formatProgram, formatYear } from '../utils/formatters';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadFile, getFileView, deleteFile } from '../services/storage';
+import { updateUserProfile } from '../services/auth';
+import { useNavigation } from '@react-navigation/native';
+import { getNotifications } from '../services/notifications';
+import { AppNotification } from '../types';
+
+const { width } = Dimensions.get('window');
 
 const AccountScreen = () => {
-    const { user, signOut } = useAuth();
+    const navigation = useNavigation<any>();
+    const { user, signOut, setUser } = useAuth();
     const [subscription, setSubscription] = useState<any>(null);
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [fetchingSub, setFetchingSub] = useState(true);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
         fetchSub();
+        fetchNotifications();
     }, [user]);
+
+    const fetchNotifications = async () => {
+        const data = await getNotifications();
+        setUnreadCount(data.filter(n => !n.isRead).length);
+    };
 
     const fetchSub = async () => {
         if (user) {
@@ -34,7 +60,7 @@ const AccountScreen = () => {
 
     const handleRedeem = async () => {
         if (!code || code.length < 8) {
-            Alert.alert('Invalid Code', 'Please enter a valid 12-digit access code.');
+            Alert.alert('Invalid Code', 'Please enter a valid access code.');
             return;
         }
         setLoading(true);
@@ -43,7 +69,7 @@ const AccountScreen = () => {
             if (result.success) {
                 Alert.alert('Success', `Subscription extended by ${result.durationDays} days!`);
                 setCode('');
-                fetchSub(); // Refresh subscription status
+                fetchSub();
             } else {
                 Alert.alert('Error', result.message || 'Invalid or used code');
             }
@@ -54,417 +80,216 @@ const AccountScreen = () => {
         }
     };
 
+    const pickImage = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+            });
+
+            if (!result.canceled) {
+                setUploading(true);
+                const asset = result.assets[0];
+
+                const uploadedFile = await uploadFile({
+                    uri: asset.uri,
+                    name: asset.fileName || `avatar_${Date.now()}.jpg`,
+                    type: asset.mimeType || 'image/jpeg'
+                });
+
+                const avatarUrl = getFileView(uploadedFile.$id).toString();
+
+                await updateUserProfile(user!.$id, {
+                    avatarUrl: avatarUrl,
+                    avatarFileId: uploadedFile.$id
+                });
+
+                setUser({
+                    ...user!,
+                    avatarUrl: avatarUrl,
+                    avatarFileId: uploadedFile.$id
+                });
+
+                if (user?.avatarFileId) {
+                    await deleteFile(user.avatarFileId);
+                }
+
+                Alert.alert('Success', 'Profile picture updated!');
+            }
+        } catch (error: any) {
+            console.error(error);
+            Alert.alert('Upload Failed', error.message || 'Could not upload image');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const isSubscribed = subscription?.status === 'ACTIVE' && new Date(subscription.endDate) > new Date();
 
     return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+        <View className="flex-1 bg-white">
+            <StatusBar barStyle="dark-content" />
+            <SafeAreaView className="flex-1" edges={['top']}>
+                <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+                    {/* Minimalist Top Header */}
+                    <View className="px-6 py-4 flex-row justify-between items-center">
+                        <Text className="text-2xl font-black text-slate-900 tracking-tighter">My Account</Text>
+                        <TouchableOpacity
+                            onPress={signOut}
+                            className="bg-slate-50 px-4 py-2 rounded-full border border-slate-100"
+                        >
+                            <Text className="text-red-500 font-bold text-xs uppercase tracking-widest">Sign Out</Text>
+                        </TouchableOpacity>
+                    </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                <LinearGradient
-                    colors={[Colors.primary, '#1e3a8a']}
-                    style={styles.headerGradient}
-                >
-                    <SafeAreaView edges={['top']} style={styles.profileHeader}>
-                        <View style={styles.avatarContainer}>
-                            <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>{user?.fullName.charAt(0)}</Text>
+                    {/* Profile Section */}
+                    <View className="items-center mt-8 pb-10 border-b border-slate-50">
+                        <TouchableOpacity
+                            onPress={pickImage}
+                            disabled={uploading}
+                            className="w-28 h-28 bg-slate-50 rounded-[40px] items-center justify-center border-4 border-white shadow-sm relative overflow-hidden mb-6"
+                        >
+                            {user?.avatarUrl ? (
+                                <Image source={{ uri: user.avatarUrl }} className="w-full h-full" resizeMode="cover" />
+                            ) : (
+                                <View className="items-center justify-center">
+                                    <Text className="text-4xl font-black text-blue-600">{user?.fullName.charAt(0)}</Text>
+                                </View>
+                            )}
+                            {uploading && (
+                                <View className="absolute inset-0 bg-black/20 items-center justify-center">
+                                    <ActivityIndicator color="white" />
+                                </View>
+                            )}
+                            <View className="absolute bottom-0 right-0 left-0 bg-blue-600/80 items-center py-1">
+                                <MaterialCommunityIcons name="camera" size={12} color="white" />
                             </View>
-                            <TouchableOpacity
-                                style={styles.editAvatar}
-                                activeOpacity={0.8}
-                                onPress={() => Alert.alert('Coming Soon', 'Profile picture update will be available in the next update.')}
-                            >
-                                <MaterialCommunityIcons name="camera" size={14} color={Colors.white} />
-                            </TouchableOpacity>
-                        </View>
-                        <Text style={styles.name}>{user?.fullName}</Text>
-                        <View style={styles.programBadge}>
-                            <Text style={styles.programText}>{formatProgram(user?.program!)} • Year {formatYear(user?.yearOfStudy!)}</Text>
-                        </View>
-                        <View style={styles.contactInfo}>
-                            <Text style={styles.email}>{user?.email}</Text>
-                            <Text style={styles.phone}>{user?.whatsappNumber}</Text>
-                        </View>
-                    </SafeAreaView>
-                </LinearGradient>
+                        </TouchableOpacity>
 
-                <View style={styles.mainContent}>
-                    {/* Status Bar */}
-                    <LinearGradient
-                        colors={isSubscribed ? [Colors.success, '#065f46'] : [Colors.secondary, '#9a3412']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.statusCard}
-                    >
-                        <View style={styles.statusInfo}>
-                            <Text style={styles.statusTitleText}>Member Status</Text>
-                            <Text style={styles.statusValueText}>
-                                {fetchingSub ? '...' : isSubscribed ? 'Premium Access' : 'Basic Member'}
-                            </Text>
-                        </View>
-                        {isSubscribed && subscription?.endDate ? (
-                            <View style={styles.expiryBox}>
-                                <Text style={styles.expiryLabel}>Valid Until</Text>
-                                <Text style={styles.expiryValue}>
-                                    {new Date(subscription.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        <Text className="text-2xl font-black text-slate-900 mb-1">{user?.fullName}</Text>
+                        <Text className="text-slate-500 font-medium mb-4">{user?.email}</Text>
+
+                        <View className="flex-row items-center gap-2">
+                            <View className="bg-brand-surface px-3 py-1 rounded-full border border-brand-light/10">
+                                <Text className="text-brand font-black text-[10px] uppercase tracking-widest">
+                                    {user?.program ? formatProgram(user.program) : 'Loading...'}
                                 </Text>
                             </View>
-                        ) : (
-                            <MaterialCommunityIcons name="crown-outline" size={32} color="rgba(255,255,255,0.4)" />
-                        )}
-                    </LinearGradient>
-
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Activate Premium</Text>
-                        <View style={styles.card}>
-                            <Text style={styles.cardInfo}>Enter your 12-digit subscription code to unlock all materials.</Text>
-                            <View style={styles.inputContainer}>
-                                <MaterialCommunityIcons name="ticket-confirmation-outline" size={22} color={Colors.primary} style={styles.inputIcon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="XXXX-XXXX-XXXX"
-                                    placeholderTextColor={Colors.textLighter}
-                                    value={code}
-                                    onChangeText={setCode}
-                                    autoCapitalize="characters"
-                                    maxLength={14}
-                                />
+                            <View className="bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
+                                <Text className="text-slate-500 font-black text-[10px] uppercase tracking-widest">
+                                    {user?.yearOfStudy ? `Year ${formatYear(user.yearOfStudy)}` : ''}
+                                </Text>
                             </View>
-                            <TouchableOpacity
-                                style={[styles.redeemBtn, { opacity: !code || loading ? 0.6 : 1 }]}
-                                onPress={handleRedeem}
-                                disabled={loading || !code}
-                                activeOpacity={0.8}
-                            >
-                                <LinearGradient
-                                    colors={[Colors.primary, '#1e40af']}
-                                    style={styles.redeemBtnGradient}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color={Colors.white} size="small" />
-                                    ) : (
-                                        <Text style={styles.redeemBtnText}>Activate Now</Text>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
                         </View>
                     </View>
 
-                    <View style={styles.menuSection}>
-                        <Text style={styles.menuHeader}>Quick Actions</Text>
-                        <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Notifications', 'Push notifications are currently managed by system settings.')}>
-                            <View style={[styles.menuIconContainer, { backgroundColor: '#E0F2FE' }]}>
-                                <MaterialCommunityIcons name="bell-outline" size={22} color="#0369A1" />
+                    {/* Content Section */}
+                    <View className="px-6 py-10 bg-slate-50/50 flex-1">
+                        {/* Premium Status Banner */}
+                        <View className={`p-8 rounded-[32px] mb-6 flex-row items-center border ${isSubscribed ? 'bg-white border-blue-100 shadow-sm' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <View className={`w-16 h-16 rounded-2xl items-center justify-center mr-5 ${isSubscribed ? 'bg-blue-50' : 'bg-slate-50'}`}>
+                                <MaterialCommunityIcons
+                                    name={isSubscribed ? "crown" : "account-lock-outline"}
+                                    size={34}
+                                    color={isSubscribed ? "#2563EB" : "#94A3B8"}
+                                />
                             </View>
-                            <Text style={styles.menuText}>Notifications</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
-                        </TouchableOpacity>
+                            <View className="flex-1">
+                                <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Membership</Text>
+                                <Text className="text-slate-900 font-black text-xl">
+                                    {fetchingSub ? 'Syncing...' : isSubscribed ? 'Premium Access ✨' : 'Standard Member'}
+                                </Text>
+                                {isSubscribed && (
+                                    <Text className="text-blue-600 font-bold text-[11px] mt-1">
+                                        Active until: {new Date(subscription.endDate).toLocaleDateString()}
+                                    </Text>
+                                )}
+                            </View>
+                        </View>
 
-                        <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Security', 'Your account is secured with single-device authentication.')}>
-                            <View style={[styles.menuIconContainer, { backgroundColor: '#F0FDF4' }]}>
-                                <MaterialCommunityIcons name="shield-check-outline" size={22} color="#166534" />
-                            </View>
-                            <Text style={styles.menuText}>Privacy & Security</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
-                        </TouchableOpacity>
+                        {/* Redeem/Upgrade Section - Only visible when NOT subscribed or expired */}
+                        {!isSubscribed && !fetchingSub && (
+                            <View className="bg-slate-900 p-8 rounded-[40px] mb-8 shadow-xl shadow-slate-200">
+                                <Text className="text-white text-2xl font-black mb-1">Upgrade Account</Text>
+                                <Text className="text-slate-400 text-sm font-bold mb-8">Enter your activation code for instant access to premium resources.</Text>
 
-                        <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Support', 'For technical issues, contact: support@nursecorner.com')}>
-                            <View style={[styles.menuIconContainer, { backgroundColor: '#FFF7ED' }]}>
-                                <MaterialCommunityIcons name="help-circle-outline" size={22} color="#9A3412" />
-                            </View>
-                            <Text style={styles.menuText}>Help & Support</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
-                        </TouchableOpacity>
+                                <View className="bg-white/10 border border-white/10 rounded-2xl px-5 h-16 flex-row items-center mb-6">
+                                    <MaterialCommunityIcons name="tag-outline" size={24} color="white" />
+                                    <TextInput
+                                        className="flex-1 ml-4 text-white font-black text-xl tracking-[4px]"
+                                        placeholder="XXXX-XXXX"
+                                        placeholderTextColor="rgba(255,255,255,0.3)"
+                                        value={code}
+                                        onChangeText={setCode}
+                                        autoCapitalize="characters"
+                                        maxLength={14}
+                                    />
+                                </View>
 
-                        <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => Alert.alert('About', 'Nurse Learning Corner v1.0.2\nDeveloped for Zambian Nursing Excellence.')}>
-                            <View style={[styles.menuIconContainer, { backgroundColor: '#F5F3FF' }]}>
-                                <MaterialCommunityIcons name="information-outline" size={22} color="#5B21B6" />
+                                <TouchableOpacity
+                                    onPress={handleRedeem}
+                                    disabled={loading || !code}
+                                    className={`bg-white h-16 rounded-2xl items-center justify-center ${(!code || loading) ? 'opacity-50' : ''}`}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#0F172A" />
+                                    ) : (
+                                        <Text className="text-slate-900 font-black uppercase tracking-widest text-sm">Verify & Upgrade Account</Text>
+                                    )}
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.menuText}>About App</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
-                        </TouchableOpacity>
+                        )}
+
+                        {/* Settings Links */}
+                        <View className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden mb-10">
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Notifications')}
+                                className="px-6 py-5 flex-row items-center border-b border-slate-50"
+                            >
+                                <View className="relative">
+                                    <MaterialCommunityIcons name="bell-outline" size={20} color="#64748B" />
+                                    {unreadCount > 0 && (
+                                        <View className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white" />
+                                    )}
+                                </View>
+                                <Text className="flex-1 ml-4 text-slate-900 font-bold">In-App Notifications</Text>
+                                {unreadCount > 0 && (
+                                    <View className="bg-blue-600 px-2 py-0.5 rounded-full mr-2">
+                                        <Text className="text-white text-[10px] font-black">{unreadCount}</Text>
+                                    </View>
+                                )}
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Privacy')}
+                                className="px-6 py-5 flex-row items-center border-b border-slate-50"
+                            >
+                                <MaterialCommunityIcons name="shield-check-outline" size={20} color="#64748B" />
+                                <Text className="flex-1 ml-4 text-slate-900 font-bold">Privacy & Security</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Support')}
+                                className="px-6 py-5 flex-row items-center"
+                            >
+                                <MaterialCommunityIcons name="help-circle-outline" size={20} color="#64748B" />
+                                <Text className="flex-1 ml-4 text-slate-900 font-bold">Nurse Support Desk</Text>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text className="text-center text-slate-400 font-bold text-[9px] uppercase tracking-[4px] mb-10">
+                            Version 1.0.2 • Made for Nurses
+                        </Text>
                     </View>
-
-                    <TouchableOpacity style={styles.logoutBtn} onPress={signOut} activeOpacity={0.7}>
-                        <MaterialCommunityIcons name="logout" size={20} color={Colors.error} />
-                        <Text style={styles.logoutText}>Sign Out of Device</Text>
-                    </TouchableOpacity>
-
-                    <Text style={styles.versionText}>Nurse Learning Corner • v1.0.2</Text>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </SafeAreaView>
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    scrollContent: {
-        paddingBottom: Spacing.xxl,
-    },
-    headerGradient: {
-        paddingTop: Spacing.xl,
-        paddingBottom: Spacing.xxl,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        alignItems: 'center',
-        ...Shadow.medium,
-    },
-    profileHeader: {
-        alignItems: 'center',
-        width: '100%',
-    },
-    avatarContainer: {
-        position: 'relative',
-        marginBottom: Spacing.md,
-    },
-    avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: Colors.white,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 3,
-        borderColor: 'rgba(255,255,255,0.3)',
-        ...Shadow.medium,
-    },
-    avatarText: {
-        color: Colors.primary,
-        fontSize: 42,
-        fontWeight: '900',
-    },
-    editAvatar: {
-        position: 'absolute',
-        bottom: 2,
-        right: 2,
-        backgroundColor: Colors.secondary,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 3,
-        borderColor: Colors.white,
-        ...Shadow.small,
-    },
-    name: {
-        ...Typography.h2,
-        color: Colors.white,
-        marginBottom: 4,
-        fontWeight: '800',
-    },
-    programBadge: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingVertical: 4,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
-    programText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.white,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    contactInfo: {
-        alignItems: 'center',
-        opacity: 0.9,
-    },
-    email: {
-        ...Typography.bodySmall,
-        color: Colors.white,
-        fontWeight: '500',
-    },
-    phone: {
-        ...Typography.bodySmall,
-        color: Colors.white,
-        marginTop: 2,
-        fontWeight: '500',
-    },
-    mainContent: {
-        paddingHorizontal: Spacing.lg,
-        marginTop: -30,
-    },
-    statusCard: {
-        borderRadius: 20,
-        padding: Spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        ...Shadow.medium,
-        marginBottom: Spacing.xl,
-    },
-    statusInfo: {
-        flex: 1,
-    },
-    statusTitleText: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.8)',
-        fontWeight: '700',
-        textTransform: 'uppercase',
-        marginBottom: 2,
-    },
-    statusValueText: {
-        fontSize: 22,
-        fontWeight: '900',
-        color: Colors.white,
-    },
-    expiryBox: {
-        alignItems: 'flex-end',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        padding: 8,
-        borderRadius: 12,
-    },
-    expiryLabel: {
-        fontSize: 10,
-        color: 'rgba(255,255,255,0.9)',
-        fontWeight: '600',
-    },
-    expiryValue: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: Colors.white,
-    },
-    section: {
-        marginBottom: Spacing.xl,
-    },
-    sectionTitle: {
-        ...Typography.h3,
-        color: Colors.text,
-        marginBottom: Spacing.md,
-        fontWeight: '800',
-        paddingLeft: 4,
-    },
-    card: {
-        backgroundColor: Colors.white,
-        borderRadius: 20,
-        padding: Spacing.xl,
-        ...Shadow.small,
-        borderWidth: 1,
-        borderColor: Colors.borderLight,
-    },
-    cardInfo: {
-        ...Typography.bodySmall,
-        color: Colors.textLight,
-        marginBottom: Spacing.lg,
-        lineHeight: 18,
-        textAlign: 'center',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        borderRadius: 16,
-        paddingHorizontal: Spacing.md,
-        height: 56,
-        marginBottom: Spacing.lg,
-        backgroundColor: Colors.background,
-    },
-    inputIcon: {
-        marginRight: Spacing.sm,
-    },
-    input: {
-        flex: 1,
-        fontSize: 18,
-        color: Colors.text,
-        fontWeight: 'bold',
-        letterSpacing: 2,
-    },
-    redeemBtn: {
-        height: 56,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...Shadow.medium,
-        overflow: 'hidden',
-    },
-    redeemBtnGradient: {
-        width: '100%',
-        height: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    redeemBtnText: {
-        color: Colors.white,
-        fontSize: 16,
-        fontWeight: '800',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    menuSection: {
-        backgroundColor: Colors.white,
-        borderRadius: 20,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: Colors.borderLight,
-        ...Shadow.small,
-        marginBottom: Spacing.xl,
-    },
-    menuHeader: {
-        fontSize: 12,
-        color: Colors.textLighter,
-        fontWeight: '800',
-        padding: Spacing.lg,
-        paddingBottom: Spacing.sm,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Spacing.lg,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
-    },
-    menuIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    menuText: {
-        flex: 1,
-        ...Typography.body,
-        color: Colors.text,
-        marginLeft: Spacing.md,
-        fontWeight: '700',
-    },
-    logoutBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: Spacing.lg,
-        backgroundColor: Colors.white,
-        borderWidth: 1.5,
-        borderColor: Colors.error,
-        borderRadius: 16,
-        marginTop: Spacing.md,
-        marginBottom: Spacing.lg,
-        gap: 10,
-        ...Shadow.small,
-    },
-    logoutText: {
-        color: Colors.error,
-        fontWeight: '800',
-        fontSize: 16,
-    },
-    versionText: {
-        textAlign: 'center',
-        fontSize: 12,
-        color: Colors.textLighter,
-        marginBottom: Spacing.xxl,
-        fontWeight: '600',
-    },
-});
 
 export default AccountScreen;

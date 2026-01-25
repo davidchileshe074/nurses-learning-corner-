@@ -154,3 +154,55 @@ export const verifyEmailOTP = async (userId: string, secret: string) => {
         throw new Error(error.message);
     }
 };
+
+export const updateUserProfile = async (documentId: string, data: Partial<UserProfile>) => {
+    try {
+        return await databases.updateDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.profilesCollectionId,
+            documentId,
+            data
+        );
+    } catch (error: any) {
+        console.error('Update User Profile Error:', error);
+        throw new Error(error.message);
+    }
+};
+export const changePassword = async (newPassword: string, oldPassword: string) => {
+    try {
+        return await account.updatePassword(newPassword, oldPassword);
+    } catch (error: any) {
+        console.error('Change Password Error:', error);
+        throw new Error(error.message);
+    }
+};
+
+export const deleteAccount = async (profileId: string) => {
+    try {
+        // 1. Delete the profile document
+        await databases.deleteDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.profilesCollectionId,
+            profileId
+        );
+
+        // Note: Full Appwrite account deletion usually requires server-side logic
+        // for security. We delete the profile document and log out.
+        await account.deleteSession('current');
+        return true;
+    } catch (error: any) {
+        console.error('Delete Account Error:', error);
+        throw new Error(error.message);
+    }
+};
+
+export const sendPasswordResetEmail = async (email: string) => {
+    try {
+        // This URL should be your app's deep link or a web handler
+        const redirectUrl = 'https://nurse-learning-corner.app/reset-password';
+        return await account.createRecovery(email, redirectUrl);
+    } catch (error: any) {
+        console.error('Send Password Reset Email Error:', error);
+        throw new Error(error.message);
+    }
+};
