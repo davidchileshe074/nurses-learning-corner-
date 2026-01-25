@@ -77,7 +77,7 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50">
+        <SafeAreaView className="flex-1 bg-slate-50" edges={['top', 'bottom']}>
             <StatusBar barStyle="dark-content" />
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1 p-6">
                 <TouchableOpacity onPress={() => navigation.goBack()} className="mb-8">
