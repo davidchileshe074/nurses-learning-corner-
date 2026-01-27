@@ -3,8 +3,10 @@ import { Program, YearOfStudy } from '../types';
 /**
  * Formats program code to user-friendly display name
  */
-export const formatProgram = (program: Program): string => {
-    const programMap: Record<Program, string> = {
+export const formatProgram = (program?: string | null): string => {
+    if (!program) return 'Nursing';
+
+    const programMap: Record<string, string> = {
         'REGISTERED-NURSING': 'Registered Nursing',
         'MIDWIFERY': 'Midwifery',
         'PUBLIC-HEALTH': 'Published Health Nursing',

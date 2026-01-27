@@ -444,6 +444,7 @@ const getSubjectIcon = (subject: string): any => {
     const s = subject.toLowerCase();
     if (s.includes('anatomy')) return 'bone';
     if (s.includes('nurs')) return 'medical-bag';
+    if (s.includes('care plan')) return 'clipboard-pulse-outline';
     if (s.includes('pharmacology')) return 'pill';
     if (s.includes('physio')) return 'heart-pulse';
     if (s.includes('bio')) return 'microscope';

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Nurse Learning Corner - Password Reset Redirect</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8fafc;
+            color: #1e293b;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            padding: 40px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 800;
+        }
+
+        p {
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .spinner {
+            border: 4px solid #f1f5f9;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="status-icon">
+            <div class="spinner"></div>
+        </div>
+        <h1 id="title">Redirecting...</h1>
+        <p id="message">Opening the Nurse Learning Corner app to reset your password.</p>
+
+        <div id="action-button-container" style="margin-top: 30px; display: none;">
+            <a id="action-button" href="#"
+                style="background-color: #2563eb; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">Open
+                Nurse Learning Corner</a>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('userId');
+        const secret = urlParams.get('secret');
+
+        const title = document.getElementById('title');
+        const message = document.getElementById('message');
+        const statusIcon = document.getElementById('status-icon');
+        const actionButtonContainer = document.getElementById('action-button-container');
+        const actionButton = document.getElementById('action-button');
+
+        if (userId && secret) {
+            const deepLink = `nurse-learning-corner://reset-password?userId=${userId}&secret=${secret}`;
+            actionButton.href = deepLink;
+
+            // Try automatic redirect
+            window.location.href = deepLink;
+
+            // Show manual button after a short delay in case redirect failed
+            setTimeout(() => {
+                actionButtonContainer.style.display = 'block';
+                title.innerText = "Almost there!";
+                message.innerText = "If the app didn't open automatically, please click the button below.";
+            }, 1000);
+        } else {
+            title.innerText = "Invalid Link";
+            message.innerText = "This link is missing required information. Please request a new reset link from the app.";
+            statusIcon.innerHTML = "❌";
+            statusIcon.style.fontSize = "48px";
+        }
+    </script>
+</body>
+
+</html>

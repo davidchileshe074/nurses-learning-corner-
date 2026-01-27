@@ -167,7 +167,7 @@ export const linking = {
     prefixes: ['nurse-learning-corner://'],
     config: {
         screens: {
-            ResetPassword: 'com.chileshe12345678.nurselearningcorner/reset-password',
+            ResetPassword: 'reset-password',
         },
     },
 };

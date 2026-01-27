@@ -198,9 +198,8 @@ export const deleteAccount = async (profileId: string) => {
 
 export const sendPasswordResetEmail = async (email: string) => {
     try {
-        // Use deep link to return to the app. Using the package name as hostname 
-        // to match Appwrite's registered platform.
-        const redirectUrl = 'nurse-learning-corner://com.chileshe12345678.nurselearningcorner/reset-password';
+        // Use deep link via hosted web redirector to ensure email compatibility
+        const redirectUrl = 'https://sparkling-crisp-4ff0e5.netlify.app';
         return await account.createRecovery(email, redirectUrl);
     } catch (error: any) {
         console.error('Send Password Reset Email Error:', error);
