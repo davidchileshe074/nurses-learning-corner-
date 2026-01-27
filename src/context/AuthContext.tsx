@@ -5,6 +5,30 @@ import { getDeviceId, bindDeviceToProfile } from '../services/device';
 import { Alert, AppState } from 'react-native';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
 import { registerForPushNotificationsAsync, bindPushTokenToUser } from '../services/notifications';
+import * as FileSystem from 'expo-file-system/legacy';
+
+const USER_CACHE_FILE = `${FileSystem.cacheDirectory}user_profile_cache.json`;
+
+const saveUserToCache = async (user: UserProfile | null) => {
+    try {
+        await FileSystem.writeAsStringAsync(USER_CACHE_FILE, JSON.stringify(user));
+    } catch (e) {
+        console.warn('[UserCache] Save Error:', e);
+    }
+};
+
+const getUserFromCache = async (): Promise<UserProfile | null> => {
+    try {
+        const info = await FileSystem.getInfoAsync(USER_CACHE_FILE);
+        if (info.exists) {
+            const content = await FileSystem.readAsStringAsync(USER_CACHE_FILE);
+            return JSON.parse(content);
+        }
+    } catch (e) {
+        console.warn('[UserCache] Read Error:', e);
+    }
+    return null;
+};
 
 interface AuthContextType {
     user: UserProfile | null;
@@ -26,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
             console.error('Sign out error:', error);
         } finally {
+            await saveUserToCache(null);
             setUser(null);
         }
     };
@@ -59,10 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (!currentUser.deviceId) {
                         const currentDeviceId = await getDeviceId();
                         try {
-                            // Fetch document ID from $id since it's an Appwrite document
                             const profileDocId = (currentUser as any).$id;
                             await bindDeviceToProfile(profileDocId, currentDeviceId);
-                            // Update local state with new deviceId
                             currentUser.deviceId = currentDeviceId;
                         } catch (e) {
                             console.error('Failed to auto-bind device:', e);
@@ -70,13 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
 
                     setUser(currentUser);
+                    await saveUserToCache(currentUser);
 
-                    // Register for push notifications
                     try {
                         const token = await registerForPushNotificationsAsync();
                         if (token && currentUser.pushToken !== token) {
                             await bindPushTokenToUser(currentUser.$id, token);
-                            // Update local user state immediately to avoid re-binding on next sync
                             setUser(prev => prev ? { ...prev, pushToken: token } : null);
                         }
                     } catch (pushError) {
@@ -87,11 +109,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     await signOut();
                 }
             } else {
-                setUser(null);
+                // If Appwrite returns null (no session or network error), check cache
+                const cachedUser = await getUserFromCache();
+                if (cachedUser) {
+                    console.log('Using cached user profile (Offline Mode)');
+                    setUser(cachedUser);
+                } else {
+                    setUser(null);
+                }
             }
         } catch (error) {
-            console.error('Auth sync error:', error);
-            setUser(null);
+            console.error('Auth sync error (checking cache):', error);
+            const cachedUser = await getUserFromCache();
+            if (cachedUser) {
+                setUser(cachedUser);
+            } else {
+                setUser(null);
+            }
         } finally {
             setIsLoading(false);
         }

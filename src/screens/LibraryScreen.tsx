@@ -530,11 +530,15 @@ const LibraryScreen = ({ route }: any) => {
                     ListHeaderComponent={renderHeader}
                     ListFooterComponent={renderFooter}
                     onEndReached={handleLoadMore}
-                    onEndReachedThreshold={0.3}
+                    onEndReachedThreshold={0.5}
                     contentContainerStyle={{ paddingBottom: 100 }}
                     showsVerticalScrollIndicator={false}
                     keyboardDismissMode="on-drag"
                     keyboardShouldPersistTaps="handled"
+                    removeClippedSubviews={true}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
                     ListEmptyComponent={
                         <View className="items-center mt-20 px-10">
                             <View className="w-32 h-32 bg-white dark:bg-slate-900 rounded-full items-center justify-center mb-8 shadow-sm border border-slate-100 dark:border-slate-800">

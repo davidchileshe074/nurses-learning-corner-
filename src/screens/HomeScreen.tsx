@@ -25,6 +25,29 @@ import { getRecentItems } from '../services/recent';
 
 
 const { width } = Dimensions.get('window');
+import * as FileSystem from 'expo-file-system/legacy';
+
+const HOME_STATS_CACHE = `${FileSystem.cacheDirectory}home_stats_cache.json`;
+
+const saveHomeStatsToCache = async (data: any) => {
+    try {
+        await FileSystem.writeAsStringAsync(HOME_STATS_CACHE, JSON.stringify(data));
+    } catch (e) {
+        console.warn('[HomeCache] Save Error:', e);
+    }
+};
+
+const getHomeStatsFromCache = async (): Promise<any | null> => {
+    try {
+        const info = await FileSystem.getInfoAsync(HOME_STATS_CACHE);
+        if (info.exists) {
+            const content = await FileSystem.readAsStringAsync(HOME_STATS_CACHE);
+            return JSON.parse(content);
+        }
+    } catch (e) {
+        return null;
+    }
+};
 
 const HomeScreen = () => {
     const navigation = useNavigation<any>();
@@ -39,6 +62,8 @@ const HomeScreen = () => {
     const [stats, setStats] = useState({ totalItems: 0, subjectsCount: 0 });
     const [hasUnread, setHasUnread] = useState(false);
     const [recentItems, setRecentItems] = useState<ContentItem[]>([]);
+    const lastFetchTime = React.useRef<number>(0);
+    const FETCH_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
 
     const fetchData = useCallback(async (isInitial = false) => {
@@ -70,9 +95,25 @@ const HomeScreen = () => {
             ]);
             setHasUnread(notifications.some(n => !n.isRead));
             setRecentItems(recent);
-        } catch (error) {
 
-            console.error('[Home] Fetch Error:', error);
+            // Save to cache for offline availability
+            saveHomeStatsToCache({
+                subjects: uniqueSubjects,
+                subStatus,
+                stats: { totalItems: contentRes.total, subjectsCount: uniqueSubjects.length },
+                recent
+            });
+
+            lastFetchTime.current = Date.now();
+        } catch (error) {
+            console.error('[Home] Fetch Error (checking cache):', error);
+            const cached = await getHomeStatsFromCache();
+            if (cached) {
+                setSubjects(cached.subjects);
+                setSubscription(cached.subStatus);
+                setStats(cached.stats);
+                setRecentItems(cached.recent);
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -104,7 +145,10 @@ const HomeScreen = () => {
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            fetchData();
+            const now = Date.now();
+            if (now - lastFetchTime.current > FETCH_THROTTLE_MS) {
+                fetchData();
+            }
         });
         return unsubscribe;
     }, [navigation, fetchData]);
