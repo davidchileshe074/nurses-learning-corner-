@@ -15,12 +15,10 @@ import { getLocalDownloads } from '../services/downloads';
 import { useAuth } from '../context/AuthContext';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-const DownloadsScreen = () => {
-    const navigation = useNavigation<any>();
+const DownloadsScreen = ({ navigation }: any) => {
     const { user } = useAuth();
     const [downloads, setDownloads] = useState<any[]>([]);
     const [isSubscribed, setIsSubscribed] = useState(false);

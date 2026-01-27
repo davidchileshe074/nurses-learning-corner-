@@ -16,7 +16,6 @@ import { getContent } from '../services/content';
 import { ContentItem, Subject } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
-import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getSubscriptionStatus } from '../services/subscription';
 import { Subscription, AppNotification } from '../types';
@@ -49,8 +48,7 @@ const getHomeStatsFromCache = async (): Promise<any | null> => {
     }
 };
 
-const HomeScreen = () => {
-    const navigation = useNavigation<any>();
+const HomeScreen = ({ navigation }: any) => {
     const { user } = useAuth();
     const scheme = useColorScheme();
     const isDark = scheme === 'dark';

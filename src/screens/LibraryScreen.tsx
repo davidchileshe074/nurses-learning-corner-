@@ -22,14 +22,12 @@ import { getLocalDownloads } from '../services/downloads';
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
-import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useColorScheme } from 'react-native';
 
-const LibraryScreen = ({ route }: any) => {
+const LibraryScreen = ({ route, navigation }: any) => {
     const { subject: initialSubject } = route?.params || {};
     const { user } = useAuth();
-    const navigation = useNavigation<any>();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
 
@@ -157,19 +155,19 @@ const LibraryScreen = ({ route }: any) => {
     }, [initialSubject]);
 
     // -- Handlers --
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         setOffset(0);
         setHasMore(true);
         loadLibraryData(false, true, 0);
-    };
+    }, [loadLibraryData]);
 
-    const handleLoadMore = () => {
+    const handleLoadMore = useCallback(() => {
         if (!loadingMore && hasMore && !loading && !refreshing && activeFilter !== 'Downloads') {
             loadLibraryData(false, false, offset);
         }
-    };
+    }, [loadingMore, hasMore, loading, refreshing, activeFilter, loadLibraryData, offset]);
 
-    const handleItemPress = (item: ContentItem) => {
+    const handleItemPress = useCallback((item: ContentItem) => {
         if (!isSubscribed) {
             Alert.alert(
                 'Premium Resource',
@@ -182,7 +180,7 @@ const LibraryScreen = ({ route }: any) => {
             return;
         }
         navigation.navigate('ContentDetail', { item });
-    };
+    }, [isSubscribed, navigation]);
 
     // Client-side search filtering
     const displayedContent = useMemo(() => {

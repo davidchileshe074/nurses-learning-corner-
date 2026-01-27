@@ -18,15 +18,13 @@ import { downloadContent, savePlaybackPosition, getPlaybackPosition, getLocalCon
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { addToRecent } from '../services/recent';
 
 
 const { width, height } = Dimensions.get('window');
 
-const ContentDetailScreen = ({ route }: any) => {
-    const navigation = useNavigation<any>();
+const ContentDetailScreen = ({ route, navigation }: any) => {
     const { item }: { item: ContentItem } = route.params;
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState(false);
