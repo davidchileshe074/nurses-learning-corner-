@@ -2,8 +2,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import { getCurrentUser, signOut as appwriteSignOut } from '../services/auth';
 import { getDeviceId, bindDeviceToProfile } from '../services/device';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
+import { registerForPushNotificationsAsync, bindPushTokenToUser } from '../services/notifications';
 
 interface AuthContextType {
     user: UserProfile | null;
@@ -19,20 +20,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const signOut = async () => {
+        try {
+            await appwriteSignOut();
+        } catch (error) {
+            console.error('Sign out error:', error);
+        } finally {
+            setUser(null);
+        }
+    };
+
     const checkDeviceBinding = async (profile: UserProfile): Promise<boolean> => {
         const currentDeviceId = await getDeviceId();
 
         if (!profile.deviceId) {
             // First time login on this device or binding not set
-            // In a real flow, we'd bind it here after OTP
             return true;
         }
 
         if (profile.deviceId !== currentDeviceId) {
             Alert.alert(
-                'Access Blocked',
-                'Account already used on another device. Contact admin.',
-                [{ text: 'OK' }]
+                'Device Access Restricted',
+                'For security reasons, your account is locked to the primary device you register with.',
+                [{ text: 'OK', onPress: () => signOut() }]
             );
             return false;
         }
@@ -58,10 +68,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             console.error('Failed to auto-bind device:', e);
                         }
                     }
+
                     setUser(currentUser);
+
+                    // Register for push notifications
+                    try {
+                        const token = await registerForPushNotificationsAsync();
+                        if (token && currentUser.pushToken !== token) {
+                            await bindPushTokenToUser(currentUser.$id, token);
+                            // Update local user state immediately to avoid re-binding on next sync
+                            setUser(prev => prev ? { ...prev, pushToken: token } : null);
+                        }
+                    } catch (pushError) {
+                        console.log('Push notification registration failed (non-blocking):', pushError);
+                    }
+
                 } else {
-                    await appwriteSignOut();
-                    setUser(null);
+                    await signOut();
                 }
             } else {
                 setUser(null);
@@ -77,30 +100,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         syncUser();
 
+        // Check verification on app foreground
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                syncUser();
+            }
+        });
+
         // Periodic subscription check every 6 hours
         const interval = setInterval(async () => {
-            if (user) {
-                const sub = await getSubscriptionStatus(user.userId);
+            // Fetch fresh user data to avoid stale closures
+            const currentUser = await getCurrentUser();
+            if (currentUser) {
+                const sub = await getSubscriptionStatus(currentUser.userId);
                 if (!checkSubscriptionExpiry(sub)) {
                     syncUser(); // Re-sync to reflect expired status
                 }
             }
         }, 6 * 60 * 60 * 1000);
 
-        return () => clearInterval(interval);
-    }, []); // Run only on mount to prevent infinite loop with syncUser
-
-    const signOut = async () => {
-        try {
-            await appwriteSignOut();
-            setUser(null);
-        } catch (error) {
-            console.error('Sign out error:', error);
-        }
-    };
+        return () => {
+            clearInterval(interval);
+            subscription.remove();
+        };
+    }, []);
 
     return (
-        <AuthContext.Provider value={{ user, isLoading, setUser, checkDeviceBinding, signOut }}>
+        <AuthContext.Provider value={{
+            user,
+            isLoading,
+            setUser,
+            checkDeviceBinding,
+            signOut
+        }}>
             {children}
         </AuthContext.Provider>
     );

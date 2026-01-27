@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar, useColorScheme } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +8,10 @@ import { Program, YearOfStudy } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
-const RegisterScreen = ({ navigation }: any) => {
+const RegisterScreen = () => {
+    const navigation = useNavigation<any>();
+    const scheme = useColorScheme();
+    const isDark = scheme === 'dark';
     const { setUser } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -73,8 +77,8 @@ const RegisterScreen = ({ navigation }: any) => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950" edges={['top', 'bottom']}>
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1"
@@ -89,12 +93,12 @@ const RegisterScreen = ({ navigation }: any) => {
                     <View className="py-6 mb-2">
                         <TouchableOpacity
                             onPress={() => navigation.goBack()}
-                            className="w-10 h-10 -ml-2 mb-4 items-center justify-center rounded-full active:bg-slate-50"
+                            className="w-10 h-10 -ml-2 mb-4 items-center justify-center rounded-full active:bg-slate-50 dark:active:bg-slate-900"
                         >
-                            <MaterialCommunityIcons name="arrow-left" size={28} color="#0F172A" />
+                            <MaterialCommunityIcons name="arrow-left" size={28} color={isDark ? "#FFFFFF" : "#0F172A"} />
                         </TouchableOpacity>
-                        <Text className="text-3xl font-black text-slate-900 tracking-tight mb-2">Create Account</Text>
-                        <Text className="text-slate-500 text-base font-medium leading-6">Join us to access your specialized nursing curriculum.</Text>
+                        <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Create Account</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-base font-medium leading-6">Join us to access your specialized nursing curriculum.</Text>
                     </View>
 
                     {/* Inputs */}
@@ -102,28 +106,28 @@ const RegisterScreen = ({ navigation }: any) => {
                         {/* Personal Info Group */}
                         <View>
                             <View className="flex-row items-center mb-4">
-                                <Text className="text-blue-600 font-bold text-xs uppercase tracking-widest">Personal Information</Text>
-                                <View className="h-[1px] bg-blue-100 flex-1 ml-4" />
+                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">Personal Information</Text>
+                                <View className="h-[1px] bg-blue-100 dark:bg-blue-900/40 flex-1 ml-4" />
                             </View>
 
                             <View className="space-y-4">
                                 <View>
-                                    <Text className="text-slate-900 font-bold text-sm mb-2 ml-1">Full Name</Text>
+                                    <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-2 ml-1">Full Name</Text>
                                     <TextInput
-                                        className="bg-slate-50 h-14 px-4 rounded-xl text-slate-900 font-semibold text-base border border-slate-200 focus:border-blue-600 focus:bg-white"
+                                        className="bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-xl text-slate-900 dark:text-white font-semibold text-base border border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500"
                                         placeholder="e.g. Sarah Phiri"
-                                        placeholderTextColor="#94A3B8"
+                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         value={fullName}
                                         onChangeText={setFullName}
                                     />
                                 </View>
 
                                 <View>
-                                    <Text className="text-slate-900 font-bold text-sm mb-2 ml-1">Email Address</Text>
+                                    <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-2 ml-1">Email Address</Text>
                                     <TextInput
-                                        className="bg-slate-50 h-14 px-4 rounded-xl text-slate-900 font-semibold text-base border border-slate-200 focus:border-blue-600 focus:bg-white"
+                                        className="bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-xl text-slate-900 dark:text-white font-semibold text-base border border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500"
                                         placeholder="student@example.com"
-                                        placeholderTextColor="#94A3B8"
+                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         value={email}
                                         onChangeText={setEmail}
                                         keyboardType="email-address"
@@ -132,11 +136,11 @@ const RegisterScreen = ({ navigation }: any) => {
                                 </View>
 
                                 <View>
-                                    <Text className="text-slate-900 font-bold text-sm mb-2 ml-1">WhatsApp Number</Text>
+                                    <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-2 ml-1">WhatsApp Number</Text>
                                     <TextInput
-                                        className="bg-slate-50 h-14 px-4 rounded-xl text-slate-900 font-semibold text-base border border-slate-200 focus:border-blue-600 focus:bg-white"
+                                        className="bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-xl text-slate-900 dark:text-white font-semibold text-base border border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500"
                                         placeholder="+260 97..."
-                                        placeholderTextColor="#94A3B8"
+                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         value={whatsappNumber}
                                         onChangeText={setWhatsappNumber}
                                         keyboardType="phone-pad"
@@ -148,17 +152,17 @@ const RegisterScreen = ({ navigation }: any) => {
                         {/* Security Group */}
                         <View className="pt-4">
                             <View className="flex-row items-center mb-4">
-                                <Text className="text-blue-600 font-bold text-xs uppercase tracking-widest">Security</Text>
-                                <View className="h-[1px] bg-blue-100 flex-1 ml-4" />
+                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">Security</Text>
+                                <View className="h-[1px] bg-blue-100 dark:bg-blue-900/40 flex-1 ml-4" />
                             </View>
 
                             <View>
-                                <Text className="text-slate-900 font-bold text-sm mb-2 ml-1">Password</Text>
-                                <View className="bg-slate-50 h-14 px-4 rounded-xl flex-row items-center border border-slate-200 focus:border-blue-600 focus:bg-white">
+                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-2 ml-1">Password</Text>
+                                <View className="bg-slate-50 dark:bg-slate-900 h-14 px-4 rounded-xl flex-row items-center border border-slate-200 dark:border-slate-800 focus:border-blue-600">
                                     <TextInput
-                                        className="flex-1 text-slate-900 font-semibold text-base h-full"
+                                        className="flex-1 text-slate-900 dark:text-white font-semibold text-base h-full"
                                         placeholder="Min 8 characters"
-                                        placeholderTextColor="#94A3B8"
+                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry={!showPassword}
@@ -167,7 +171,7 @@ const RegisterScreen = ({ navigation }: any) => {
                                         <MaterialCommunityIcons
                                             name={showPassword ? "eye-off" : "eye"}
                                             size={20}
-                                            color="#94A3B8"
+                                            color={isDark ? "#64748B" : "#94A3B8"}
                                         />
                                     </TouchableOpacity>
                                 </View>
@@ -177,23 +181,23 @@ const RegisterScreen = ({ navigation }: any) => {
                         {/* Academic Group */}
                         <View className="pt-4">
                             <View className="flex-row items-center mb-4">
-                                <Text className="text-blue-600 font-bold text-xs uppercase tracking-widest">Academic Profile</Text>
-                                <View className="h-[1px] bg-blue-100 flex-1 ml-4" />
+                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">Academic Profile</Text>
+                                <View className="h-[1px] bg-blue-100 dark:bg-blue-900/40 flex-1 ml-4" />
                             </View>
 
                             <View className="mb-6">
-                                <Text className="text-slate-900 font-bold text-sm mb-3 ml-1">Year of Study</Text>
+                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-3 ml-1">Year of Study</Text>
                                 <View className="flex-row gap-3">
                                     {years.map((y) => (
                                         <TouchableOpacity
                                             key={y.value}
                                             onPress={() => setYearOfStudy(y.value)}
                                             className={`flex-1 h-12 rounded-xl items-center justify-center border ${yearOfStudy === y.value
-                                                ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
-                                                : 'bg-white border-slate-200'
+                                                ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200 dark:shadow-none'
+                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                                                 }`}
                                         >
-                                            <Text className={`font-bold text-sm ${yearOfStudy === y.value ? 'text-white' : 'text-slate-600'}`}>
+                                            <Text className={`font-bold text-sm ${yearOfStudy === y.value ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`}>
                                                 {y.label}
                                             </Text>
                                         </TouchableOpacity>
@@ -202,7 +206,7 @@ const RegisterScreen = ({ navigation }: any) => {
                             </View>
 
                             <View>
-                                <Text className="text-slate-900 font-bold text-sm mb-3 ml-1">Program</Text>
+                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-3 ml-1">Program</Text>
                                 <View className="flex-row flex-wrap gap-2">
                                     {programs.map((p) => {
                                         const isSelected = program === p.value;
@@ -211,11 +215,11 @@ const RegisterScreen = ({ navigation }: any) => {
                                                 key={p.value}
                                                 onPress={() => setProgram(p.value)}
                                                 className={`px-4 py-3 rounded-xl border mb-1 ${isSelected
-                                                    ? 'bg-blue-50 border-blue-600'
-                                                    : 'bg-white border-slate-200'
+                                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-600'
+                                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
                                                     }`}
                                             >
-                                                <Text className={`font-bold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
+                                                <Text className={`font-bold text-xs ${isSelected ? 'text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>
                                                     {p.label}
                                                 </Text>
                                             </TouchableOpacity>
@@ -244,8 +248,8 @@ const RegisterScreen = ({ navigation }: any) => {
                             onPress={() => navigation.navigate('Login')}
                             className="flex-row justify-center items-center mt-6 py-4"
                         >
-                            <Text className="text-slate-500 font-medium text-base">Already have an account? </Text>
-                            <Text className="text-blue-600 font-black text-base">Login</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 font-medium text-base">Already have an account? </Text>
+                            <Text className="text-blue-600 dark:text-blue-400 font-black text-base">Login</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

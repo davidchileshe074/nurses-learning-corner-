@@ -198,8 +198,9 @@ export const deleteAccount = async (profileId: string) => {
 
 export const sendPasswordResetEmail = async (email: string) => {
     try {
-        // This URL should be your app's deep link or a web handler
-        const redirectUrl = 'https://nurse-learning-corner.app/reset-password';
+        // Use deep link to return to the app. Using the package name as hostname 
+        // to match Appwrite's registered platform.
+        const redirectUrl = 'nurse-learning-corner://com.chileshe12345678.nurselearningcorner/reset-password';
         return await account.createRecovery(email, redirectUrl);
     } catch (error: any) {
         console.error('Send Password Reset Email Error:', error);

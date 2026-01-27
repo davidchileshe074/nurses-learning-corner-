@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "27863521525",
+    "project_id": "cyberaware-56c3a",
+    "storage_bucket": "cyberaware-56c3a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27863521525:android:0a2ae5a095b5b65a704dbc",
+        "android_client_info": {
+          "package_name": "com.chileshe12345678.nurselearningcorner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUgindP5wgJ9G68T3O5rBDrtm5VbgQnVE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

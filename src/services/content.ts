@@ -26,9 +26,20 @@ const getFromCache = async (): Promise<ContentItem[]> => {
     return [];
 };
 
-export const getContent = async (program?: Program, yearOfStudy?: any, subject?: Subject, type?: string): Promise<ContentItem[]> => {
+export const getContent = async (
+    program?: Program,
+    yearOfStudy?: any,
+    subject?: Subject,
+    type?: string,
+    offset: number = 0,
+    limit: number = 10
+): Promise<{ documents: ContentItem[], total: number }> => {
     try {
-        const queries = [];
+        const queries = [
+            Query.limit(limit),
+            Query.offset(offset),
+            Query.orderDesc('$createdAt')
+        ];
 
         if (program) {
             const programsToQuery: string[] = [program];
@@ -61,28 +72,32 @@ export const getContent = async (program?: Program, yearOfStudy?: any, subject?:
 
         const documents = result.documents as unknown as ContentItem[];
 
-        // Update cache if we got fresh data
-        if (documents.length > 0) {
+        // Only cache the first page to keep offline access for most recent items
+        if (offset === 0 && documents.length > 0) {
             saveToCache(documents);
         }
 
-        return documents;
+        return {
+            documents,
+            total: result.total
+        };
     } catch (error: any) {
         console.error('Get content error (attempting cache):', error.message);
 
-        // Fallback to cache if offline
-        const cached = await getFromCache();
-
-        // If we have filters, apply them manually to cached data
-        if (cached.length > 0) {
-            return cached.filter(item => {
-                if (program && item.program !== program) return false;
-                if (subject && item.subject !== subject) return false;
-                return true;
-            });
+        // Fallback to cache if offline (only for first page)
+        if (offset === 0) {
+            const cached = await getFromCache();
+            if (cached.length > 0) {
+                const filtered = cached.filter(item => {
+                    if (program && item.program !== program) return false;
+                    if (subject && item.subject !== subject) return false;
+                    return true;
+                });
+                return { documents: filtered, total: filtered.length };
+            }
         }
 
-        return [];
+        return { documents: [], total: 0 };
     }
 };
 

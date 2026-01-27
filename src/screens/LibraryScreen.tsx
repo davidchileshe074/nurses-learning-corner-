@@ -9,35 +9,42 @@ import {
     TextInput,
     StatusBar,
     Animated,
-    Dimensions
+    Dimensions,
+    ScrollView,
+    Platform,
+    KeyboardAvoidingView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { getContent } from '../services/content';
 import { getSubscriptionStatus, checkSubscriptionExpiry } from '../services/subscription';
+import { getLocalDownloads } from '../services/downloads';
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
+import { useColorScheme } from 'react-native';
 
-const { width } = Dimensions.get('window');
-
-const LibraryScreen = ({ route }: any) => {
-    const navigation = useNavigation<any>();
+const LibraryScreen = ({ route, navigation }: any) => {
     const { subject: initialSubject } = route?.params || {};
     const { user } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     // -- State --
     const [allContent, setAllContent] = useState<ContentItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSubject, setActiveSubject] = useState<string | null>(initialSubject || null);
-    const [activeFilter, setActiveFilter] = useState('All');
+    const [activeFilter, setActiveFilter] = useState('All'); // 'All', 'Downloads', 'PDF'...
     const [showAll, setShowAll] = useState(false);
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const LIMIT = 10;
 
     // -- Derived Data --
     const courses = useMemo(() => {
@@ -60,100 +67,105 @@ const LibraryScreen = ({ route }: any) => {
         ];
 
         const derived = new Set(allContent.map(item => item.subject).filter(Boolean));
-
         // Merge standard courses with any others found in the data, ensuring unique list
         const unique = new Set([...STANDARD_COURSES, ...Array.from(derived) as string[]]);
-
-        // Sort alphabetically
         return Array.from(unique).sort();
     }, [allContent]);
 
-    const filteredContent = useMemo(() => {
-        return allContent.filter(item => {
-            // Filter by Subject (Course)
-            if (activeSubject && item.subject !== activeSubject) return false;
-
-            // Filter by Type
-            if (activeFilter !== 'All') {
-                const typeMap: Record<string, string> = {
-                    'PDF': 'PDF',
-                    'Audio': 'AUDIO',
-                    'Past Paper': 'PAST_PAPER',
-                    'Marking Key': 'MARKING_KEY'
-                };
-                if (item.type !== typeMap[activeFilter]) return false;
-            }
-
-            // Filter by Search Query
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
-                return (
-                    item.title.toLowerCase().includes(query) ||
-                    (item.description && item.description.toLowerCase().includes(query)) ||
-                    (item.subject && item.subject.toLowerCase().includes(query))
-                );
-            }
-
-            return true;
-        });
-    }, [allContent, activeSubject, activeFilter, searchQuery]);
-
     // -- Data Fetching --
-    const loadLibraryData = useCallback(async (isInitial = false) => {
+    const loadLibraryData = useCallback(async (isInitial = false, isRefresh = false, currentOffset = 0) => {
         if (!user) return;
 
         if (isInitial) setLoading(true);
-        else setRefreshing(true);
+        else if (isRefresh) setRefreshing(true);
+        else setLoadingMore(true);
 
         try {
-            // 1. Check subscription
-            const status = await getSubscriptionStatus(user.userId);
-            const subscribed = checkSubscriptionExpiry(status);
-            setIsSubscribed(subscribed);
-
-            // 2. Fetch Content (Fetch all relevant for the program/year to allow local filtering)
-            // This prevents the "break" when clicking tabs because we filter locally
-            const contentData = await getContent(
-                (showAll && subscribed) ? undefined : user.program,
-                (showAll && subscribed) ? undefined : user.yearOfStudy,
-                undefined, // Load all subjects
-                undefined  // Load all types
-            );
-
-            setAllContent(contentData);
-        } catch (error) {
-            console.warn('[Library] Load Error (using cache):', error);
-            // Only alert if we have absolutely no data to show
-            if (allContent.length === 0) {
-                Toast.show({
-                    type: 'info',
-                    text1: 'Offline Mode',
-                    text2: 'You are viewing recently cached library content.'
-                });
+            // 1. Check subscription (only on initial/refresh)
+            if (isInitial || isRefresh) {
+                const status = await getSubscriptionStatus(user.userId);
+                const subscribed = checkSubscriptionExpiry(status);
+                setIsSubscribed(subscribed);
             }
+
+            let newDocuments: ContentItem[] = [];
+            let totalCount = 0;
+
+            if (activeFilter === 'Downloads') {
+                // Fetch Offline/Downloaded Content
+                const downloads = await getLocalDownloads();
+                // Map DownloadMetadata to ContentItem
+                newDocuments = downloads.map(d => ({
+                    $id: d.id,
+                    title: d.title,
+                    description: 'Downloaded content available offline', // Metadata doesn't store full desc yet
+                    type: d.type as any,
+                    yearOfStudy: 'YEAR1', // Fallback
+                    program: 'REGISTERED-NURSING', // Fallback
+                    subject: 'Offline', // Fallback
+                    storageFileId: d.id, // using id as file ref
+                }));
+                totalCount = newDocuments.length;
+                setHasMore(false); // No pagination for local downloads
+            } else {
+                // Fetch Online Content
+                const { documents, total } = await getContent(
+                    (showAll && isSubscribed) ? undefined : user.program,
+                    (showAll && isSubscribed) ? undefined : user.yearOfStudy,
+                    activeSubject || undefined,
+                    activeFilter,
+                    currentOffset,
+                    LIMIT
+                );
+                newDocuments = documents;
+                totalCount = total;
+                setHasMore(currentOffset + documents.length < total);
+            }
+
+            if (isInitial || isRefresh) {
+                setAllContent(newDocuments);
+            } else {
+                setAllContent(prev => [...prev, ...newDocuments]);
+            }
+
+            setOffset(currentOffset + newDocuments.length);
+
+        } catch (error) {
+            console.warn('[Library] Load Error:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Fetch Error',
+                text2: 'Could not load library content.'
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
+            setLoadingMore(false);
         }
-    }, [user, showAll]);
+    }, [user, showAll, isSubscribed, activeSubject, activeFilter]);
 
     // -- Effects --
     useEffect(() => {
-        loadLibraryData(true);
-    }, [showAll, user?.program, user?.yearOfStudy]); // Re-fetch only if fundamental context changes
+        loadLibraryData(true, false, 0);
+    }, [showAll, user?.program, user?.yearOfStudy, activeSubject, activeFilter]);
 
     useEffect(() => {
         if (initialSubject) setActiveSubject(initialSubject);
     }, [initialSubject]);
 
-    useEffect(() => {
-        const unsubscribe = navigation.addListener('focus', () => {
-            loadLibraryData();
-        });
-        return unsubscribe;
-    }, [navigation, loadLibraryData]);
-
     // -- Handlers --
+    const handleRefresh = () => {
+        setOffset(0);
+        setHasMore(true);
+        loadLibraryData(false, true, 0);
+    };
+
+    const handleLoadMore = () => {
+        if (!loadingMore && hasMore && !loading && !refreshing && activeFilter !== 'Downloads') {
+            loadLibraryData(false, false, offset);
+        }
+    };
+
     const handleItemPress = (item: ContentItem) => {
         if (!isSubscribed) {
             Alert.alert(
@@ -169,222 +181,377 @@ const LibraryScreen = ({ route }: any) => {
         navigation.navigate('ContentDetail', { item });
     };
 
-    // -- Render Helpers --
-    const filterOptions = ['All', 'PDF', 'Audio', 'Past Paper', 'Marking Key'];
+    // Client-side search filtering
+    const displayedContent = useMemo(() => {
+        if (!searchQuery) return allContent;
+        const query = searchQuery.toLowerCase();
+        return allContent.filter(item =>
+            item.title.toLowerCase().includes(query) ||
+            (item.description && item.description.toLowerCase().includes(query)) ||
+            (item.subject && item.subject.toLowerCase().includes(query))
+        );
+    }, [allContent, searchQuery]);
 
-    const renderHeader = () => (
-        <View className="bg-white border-b border-slate-100 shadow-sm">
-            <SafeAreaView edges={['top']} className="px-6 pt-2 pb-4">
-                <View className="flex-row justify-between items-center mb-6">
-                    <View>
-                        <Text className="text-3xl font-black text-slate-900 tracking-tighter">Study Library</Text>
-                        <View className="flex-row items-center mt-1">
-                            <View className="bg-brand-surface px-2 py-0.5 rounded-md border border-brand-light/10 mr-2">
-                                <Text className="text-[10px] font-black text-brand uppercase tracking-widest">
-                                    {user?.program ? formatProgram(user.program) : 'Loading...'}
-                                </Text>
-                            </View>
-                            <View className="bg-accent/5 px-2 py-0.5 rounded-md border border-accent/10">
-                                <Text className="text-[10px] font-black text-accent uppercase tracking-widest">
-                                    {user?.yearOfStudy ? formatYear(user.yearOfStudy) : ''}
-                                </Text>
-                            </View>
+
+    // -- Suggestions Logic --
+    const suggestions = useMemo(() => {
+        if (!searchQuery || searchQuery.length < 2) return [];
+        const query = searchQuery.toLowerCase();
+
+        // Find matching subjects (courses)
+        const matchingCourses = courses.filter(c => c.toLowerCase().includes(query)).map(c => ({ type: 'subject', label: c, id: `subj-${c}` }));
+
+        // Find matching content titles
+        const matchingTitles = allContent
+            .filter(item => item.title.toLowerCase().includes(query))
+            .slice(0, 5) // Limit to 5 results
+            .map(item => ({ type: 'content', label: item.title, id: `cont-${item.$id}`, item }));
+
+        return [...matchingCourses, ...matchingTitles];
+    }, [searchQuery, courses, allContent]);
+
+    // -- Render Helpers --
+    const getIconForType = (type: string) => {
+        switch (type) {
+            case 'PDF': return 'file-pdf-box';
+            case 'VIDEO': return 'play-box-outline';
+            case 'AUDIO': return 'headphones';
+            case 'IMAGE': return 'image-outline';
+            case 'LINK': return 'link-variant';
+            default: return 'file-document-outline';
+        }
+    };
+
+    const renderItem = useCallback(({ item }: { item: ContentItem }) => {
+        return (
+            <TouchableOpacity
+                onPress={() => handleItemPress(item)}
+                activeOpacity={0.7}
+                className="bg-white dark:bg-slate-900 mx-6 mb-4 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex-row items-center"
+            >
+                {/* Icon Container with subtle gradient intent */}
+                <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-5 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-blue-50 border border-blue-100'
+                    }`}>
+                    <MaterialCommunityIcons
+                        name={getIconForType(item.type)}
+                        size={28}
+                        color={isDark ? '#60A5FA' : '#2563EB'}
+                    />
+                </View>
+
+                {/* Content Info */}
+                <View className="flex-1 pr-2">
+                    <Text
+                        className="text-slate-900 dark:text-white font-black text-base mb-1.5 leading-tight"
+                        numberOfLines={2}
+                    >
+                        {item.title}
+                    </Text>
+                    <View className="flex-row items-center flex-wrap">
+                        <View className="bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md mr-2">
+                            <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-400" numberOfLines={1}>
+                                {item.subject || 'General Nursing'}
+                            </Text>
+                        </View>
+                        <View className="flex-row items-center">
+                            <View className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700 mx-1.5" />
+                            <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
+                                {item.type?.replace('_', ' ') || 'MATERIAL'}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Extended Discovery Toggle */}
+                {/* Visual Cue */}
+                <View className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-full border border-slate-100 dark:border-slate-800">
+                    <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={18}
+                        color={isDark ? '#64748B' : '#94A3B8'}
+                    />
+                </View>
+            </TouchableOpacity>
+        );
+    }, [isDark, handleItemPress]);
+
+    const filterOptions = ['All', 'Downloads', 'PDF', 'Audio', 'Past Paper', 'Marking Key'];
+
+    const renderHeader = () => (
+        <View className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm z-10">
+            <SafeAreaView edges={['top']} className="px-6 pt-2 pb-4">
+                <View className="flex-row justify-between items-center mb-6">
+                    <View>
+                        <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">Study Library</Text>
+                        <View className="flex-row items-center mt-1">
+                            {user?.program && (
+                                <View className="bg-brand-surface dark:bg-brand-dark/30 px-2 py-0.5 rounded-md border border-brand-light/10 mr-2">
+                                    <Text className="text-[10px] font-black text-brand dark:text-brand-light uppercase tracking-widest">
+                                        {formatProgram(user.program)}
+                                    </Text>
+                                </View>
+                            )}
+                            {user?.yearOfStudy && (
+                                <View className="bg-accent/5 dark:bg-accent/10 px-2 py-0.5 rounded-md border border-accent/10">
+                                    <Text className="text-[10px] font-black text-accent uppercase tracking-widest">
+                                        {formatYear(user.yearOfStudy)}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                </View>
+
+                {/* Extended Discovery Toggle - Premium Switch style */}
                 {isSubscribed && (
                     <TouchableOpacity
                         onPress={() => setShowAll(!showAll)}
-                        className={`mb-6 p-4 rounded-2xl flex-row items-center justify-between ${showAll ? 'bg-blue-600' : 'bg-slate-50 border border-slate-200'}`}
+                        activeOpacity={0.8}
+                        className={`mb-6 p-4 rounded-[24px] flex-row items-center justify-between border ${showAll
+                            ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20'
+                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'
+                            }`}
                     >
-                        <View className="flex-row items-center">
-                            <MaterialCommunityIcons
-                                name={showAll ? "earth" : "earth-off"}
-                                size={20}
-                                color={showAll ? "white" : "#64748B"}
-                            />
-                            <View className="ml-3">
-                                <Text className={`font-bold text-sm ${showAll ? 'text-white' : 'text-slate-900'}`}>
-                                    {showAll ? 'Showing All Programs' : 'My Program Only'}
+                        <View className="flex-row items-center flex-1">
+                            <View className={`w-10 h-10 rounded-full items-center justify-center ${showAll ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/30'
+                                }`}>
+                                <MaterialCommunityIcons
+                                    name={showAll ? "earth" : "school-outline"}
+                                    size={20}
+                                    color={showAll ? "white" : "#2563EB"}
+                                />
+                            </View>
+                            <View className="ml-4 flex-1">
+                                <Text className={`font-black text-sm ${showAll ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                                    {showAll ? 'Global Discovery' : 'Curriculum Mode'}
                                 </Text>
-                                <Text className={`text-[10px] ${showAll ? 'text-blue-100' : 'text-slate-500'}`}>
-                                    {showAll ? 'Exploring materials from all nursing levels' : 'Currently optimized for your curriculum'}
+                                <Text className={`text-[10px] font-medium leading-tight ${showAll ? 'text-blue-100' : 'text-slate-500 dark:text-slate-500'}`}>
+                                    {showAll ? 'Exploring resources from all nursing programs' : `Showing ${formatProgram(user?.program || '')} content`}
                                 </Text>
                             </View>
                         </View>
-                        <MaterialCommunityIcons
-                            name={showAll ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"}
-                            size={24}
-                            color={showAll ? "white" : "#CBD5E1"}
-                        />
+                        <View className={`w-12 h-6 rounded-full px-1 justify-center ${showAll ? 'bg-white/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                            <Animated.View
+                                className={`w-4 h-4 rounded-full bg-white shadow-sm ${showAll ? 'self-end' : 'self-start'}`}
+                            />
+                        </View>
                     </TouchableOpacity>
                 )}
 
-                {/* Search Bar */}
-                <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 h-14 mb-4">
-                    <MaterialCommunityIcons name="magnify" size={22} color="#94A3B8" />
-                    <TextInput
-                        className="flex-1 ml-3 text-slate-900 font-medium text-base"
-                        placeholder="Search topics, courses, or papers..."
-                        placeholderTextColor="#94A3B8"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => setSearchQuery('')}>
-                            <MaterialCommunityIcons name="close-circle" size={20} color="#CBD5E1" />
-                        </TouchableOpacity>
+                {/* Search Bar - Premium Glassmorphism */}
+                <View className="z-20">
+                    <View className="flex-row items-center bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 rounded-2xl px-4 h-14 mb-2 shadow-sm">
+                        <MaterialCommunityIcons name="magnify" size={22} color={isDark ? "#60A5FA" : "#2563EB"} />
+                        <TextInput
+                            className="flex-1 ml-3 text-slate-900 dark:text-white font-bold text-base"
+                            placeholder={activeFilter === 'Downloads' ? "Search downloads..." : "Search topics, courses..."}
+                            placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            selectionColor="#2563EB"
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchQuery('')} className="p-1">
+                                <MaterialCommunityIcons name="close-circle" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Active Filters Summary Bar */}
+                    {!searchQuery && (activeSubject || activeFilter !== 'All') && (
+                        <View className="flex-row items-center mb-2 px-1">
+                            <Text className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filters:</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                                {activeSubject && (
+                                    <View className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800/50 mr-2 flex-row items-center">
+                                        <Text className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mr-1">{activeSubject}</Text>
+                                        <TouchableOpacity onPress={() => setActiveSubject(null)}>
+                                            <MaterialCommunityIcons name="close" size={10} color="#2563EB" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                                {activeFilter !== 'All' && (
+                                    <View className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 mr-2 flex-row items-center">
+                                        <Text className="text-[9px] font-bold text-slate-600 dark:text-slate-400 mr-1">{activeFilter}</Text>
+                                        <TouchableOpacity onPress={() => setActiveFilter('All')}>
+                                            <MaterialCommunityIcons name="close" size={10} color="#475569" />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    {/* Suggestions Dropdown */}
+                    {searchQuery.length > 1 && suggestions.length > 0 && (
+                        <View className="absolute top-[60px] left-0 right-0 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 z-50 overflow-hidden">
+                            <View className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 flex-row justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                                <Text className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Quick Suggestions</Text>
+                                <View className="bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                                    <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400">{suggestions.length}</Text>
+                                </View>
+                            </View>
+                            <ScrollView
+                                style={{ maxHeight: 350 }}
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                            >
+                                {suggestions.map((suggestion: any, index) => (
+                                    <TouchableOpacity
+                                        key={suggestion.id}
+                                        className={`px-5 py-4 flex-row items-center ${index < suggestions.length - 1 ? 'border-b border-slate-50 dark:border-slate-800/50' : ''
+                                            }`}
+                                        onPress={() => {
+                                            if (suggestion.type === 'subject') {
+                                                setActiveSubject(suggestion.label);
+                                                setSearchQuery('');
+                                            } else if (suggestion.type === 'content') {
+                                                handleItemPress(suggestion.item);
+                                            }
+                                        }}
+                                    >
+                                        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${suggestion.type === 'subject'
+                                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                                            : 'bg-slate-50 dark:bg-slate-800'
+                                            }`}>
+                                            <MaterialCommunityIcons
+                                                name={suggestion.type === 'subject' ? 'bookshelf' : getIconForType(suggestion.item?.type)}
+                                                size={20}
+                                                color={suggestion.type === 'subject' ? '#2563EB' : (isDark ? '#94A3B8' : '#64748B')}
+                                            />
+                                        </View>
+                                        <View className="flex-1">
+                                            <Text className="text-sm font-bold text-slate-900 dark:text-white" numberOfLines={1}>
+                                                {suggestion.label}
+                                            </Text>
+                                            <Text className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 uppercase tracking-wider">
+                                                {suggestion.type === 'subject' ? 'Course Focus' : `${suggestion.item?.type?.replace('_', ' ') || 'Resource'}`}
+                                            </Text>
+                                        </View>
+                                        <MaterialCommunityIcons
+                                            name="arrow-up-left"
+                                            size={18}
+                                            color={isDark ? '#475569' : '#CBD5E1'}
+                                        />
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
                     )}
                 </View>
 
-                {/* Course (Subject) Selector */}
-                {courses.length > 0 && (
+                {/* Course (Subject) Selector - Hidden during search for clarity */}
+                {!searchQuery && courses.length > 0 && activeFilter !== 'Downloads' && (
                     <View className="mt-2">
                         <FlatList
                             horizontal
                             data={['All Courses', ...courses]}
                             showsHorizontalScrollIndicator={false}
                             keyExtractor={(item) => item}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    onPress={() => setActiveSubject(item === 'All Courses' ? null : item)}
-                                    className={`px-5 py-2.5 rounded-xl mr-2 border ${(activeSubject === item || (item === 'All Courses' && !activeSubject))
-                                        ? 'bg-blue-600 border-blue-600 shadow-sm'
-                                        : 'bg-white border-slate-200'
-                                        }`}
-                                >
-                                    <Text className={`font-bold text-xs ${(activeSubject === item || (item === 'All Courses' && !activeSubject))
-                                        ? 'text-white'
-                                        : 'text-slate-600'
-                                        }`}>
-                                        {item}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                            contentContainerStyle={{ paddingRight: 24 }}
+                            renderItem={({ item }) => {
+                                const isActive = activeSubject === item || (item === 'All Courses' && !activeSubject);
+                                return (
+                                    <TouchableOpacity
+                                        onPress={() => setActiveSubject(item === 'All Courses' ? null : item)}
+                                        className={`px-5 py-2.5 rounded-xl mr-2 border ${isActive
+                                            ? 'bg-blue-600 border-blue-600 shadow-sm'
+                                            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800'
+                                            }`}
+                                    >
+                                        <Text className={`font-bold text-xs ${isActive
+                                            ? 'text-white'
+                                            : 'text-slate-500 dark:text-slate-400'
+                                            }`}>
+                                            {item}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            }}
                         />
                     </View>
                 )}
             </SafeAreaView>
 
-            {/* Type Filters */}
-            <View className="py-4 bg-white border-t border-slate-50">
-                <FlatList
-                    horizontal
-                    data={filterOptions}
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item) => item}
-                    contentContainerStyle={{ paddingHorizontal: 24 }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            onPress={() => setActiveFilter(item)}
-                            className={`flex-row items-center px-6 py-2 rounded-full mr-2 border ${activeFilter === item
-                                ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200'
-                                : 'bg-white border-slate-200'
-                                }`}
-                        >
-                            <Text className={`font-bold text-xs ${activeFilter === item ? 'text-white' : 'text-slate-600'}`}>
-                                {item}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                />
-            </View>
+            {/* Type Filters - Hidden during search for clarity */}
+            {!searchQuery && (
+                <View className="py-4 bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-slate-800">
+                    <FlatList
+                        horizontal
+                        data={filterOptions}
+                        showsHorizontalScrollIndicator={false}
+                        keyExtractor={(item) => item}
+                        contentContainerStyle={{ paddingHorizontal: 24 }}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                onPress={() => setActiveFilter(item)}
+                                className={`flex-row items-center px-6 py-2 rounded-full mr-2 border ${activeFilter === item
+                                    ? 'bg-blue-600 border-blue-600 shadow-md shadow-blue-200 dark:shadow-none'
+                                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                    }`}
+                            >
+                                <Text className={`font-bold text-xs ${activeFilter === item ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+                                    {item}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            )}
         </View>
     );
 
-    const renderItem = ({ item }: { item: ContentItem }) => {
-        let icon: any = 'file-document-outline';
-        let color = '#2563EB'; // brand (Blue)
-
-        if (item.type === 'AUDIO') {
-            icon = 'headphones';
-            color = '#4F46E5'; // indigo-600
-        } else if (item.type === 'MARKING_KEY') {
-            icon = 'check-decagram-outline';
-            color = '#0284C7'; // sky-600
-        } else if (item.type === 'PAST_PAPER') {
-            icon = 'file-question-outline';
-            color = '#0891B2'; // cyan-600
-        }
-
+    const renderFooter = () => {
+        if (!loadingMore) return <View className="h-20" />;
         return (
-            <TouchableOpacity
-                className="bg-white p-5 rounded-[24px] mb-4 flex-row items-center shadow-sm border border-slate-100"
-                onPress={() => handleItemPress(item)}
-                activeOpacity={0.7}
-            >
-                <View
-                    className="w-16 h-16 rounded-2xl items-center justify-center mr-4"
-                    style={{ backgroundColor: `${color}10` }}
-                >
-                    <MaterialCommunityIcons name={icon} size={30} color={color} />
-                </View>
-
-                <View className="flex-1">
-                    <Text className="text-slate-900 font-black text-base mb-1" numberOfLines={1}>
-                        {item.title}
-                    </Text>
-                    <Text className="text-slate-500 text-xs mb-3 font-medium leading-4" numberOfLines={2}>
-                        {item.description || 'No description available for this resource.'}
-                    </Text>
-                    <View className="flex-row items-center">
-                        <View className="px-2 py-0.5 rounded-md mr-2" style={{ backgroundColor: `${color}15` }}>
-                            <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: color }}>
-                                {item.type.replace('_', ' ')}
-                            </Text>
-                        </View>
-                        {!isSubscribed && (
-                            <View className="flex-row items-center bg-slate-100 px-2 py-0.5 rounded-md">
-                                <MaterialCommunityIcons name="lock" size={10} color="#94A3B8" />
-                                <Text className="text-[10px] text-slate-400 ml-1 font-bold uppercase">Premium</Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
-
-                <View className="ml-2 opacity-20">
-                    <MaterialCommunityIcons name="chevron-right" size={24} color="#0F172A" />
-                </View>
-            </TouchableOpacity>
+            <View className="py-8 items-center justify-center">
+                <ActivityIndicator size="large" color={isDark ? "#60A5FA" : "#2563EB"} />
+            </View>
         );
     };
 
-    if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#2563EB" />
-                <Text className="mt-6 text-slate-400 font-bold tracking-[3px] text-[10px] uppercase">Curating Library</Text>
-            </View>
-        );
-    }
-
     return (
-        <View className="flex-1 bg-slate-50">
-            <StatusBar barStyle="dark-content" />
+        <View className="flex-1 bg-slate-50 dark:bg-slate-950">
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-            <FlatList
-                data={filteredContent}
-                renderItem={renderItem}
-                keyExtractor={(item) => item.$id}
-                ListHeaderComponent={renderHeader}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View className="items-center mt-20 px-10">
-                        <View className="w-32 h-32 bg-white rounded-full items-center justify-center mb-8 shadow-sm border border-slate-100">
-                            <MaterialCommunityIcons name="flask-empty-outline" size={60} color="#CBD5E1" />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <FlatList
+                    data={displayedContent}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.$id}
+                    ListHeaderComponent={renderHeader}
+                    ListFooterComponent={renderFooter}
+                    onEndReached={handleLoadMore}
+                    onEndReachedThreshold={0.3}
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                    showsVerticalScrollIndicator={false}
+                    keyboardDismissMode="on-drag"
+                    keyboardShouldPersistTaps="handled"
+                    ListEmptyComponent={
+                        <View className="items-center mt-20 px-10">
+                            <View className="w-32 h-32 bg-white dark:bg-slate-900 rounded-full items-center justify-center mb-8 shadow-sm border border-slate-100 dark:border-slate-800">
+                                <MaterialCommunityIcons
+                                    name={activeFilter === 'Downloads' ? "download-off-outline" : "flask-empty-outline"}
+                                    size={60}
+                                    color={isDark ? "#475569" : "#CBD5E1"}
+                                />
+                            </View>
+                            <Text className="text-2xl font-black text-slate-900 dark:text-white text-center mb-3">
+                                {activeFilter === 'Downloads' ? 'No Downloads Yet' : 'No Results Found'}
+                            </Text>
+                            <Text className="text-slate-500 dark:text-slate-400 text-center font-medium leading-6">
+                                {activeFilter === 'Downloads'
+                                    ? 'Interact with content and click download to access them offline here.'
+                                    : "We couldn't find any resources matching your current filters or search query."}
+                            </Text>
                         </View>
-                        <Text className="text-2xl font-black text-slate-900 text-center mb-3">No Results Found</Text>
-                        <Text className="text-slate-500 text-center font-medium leading-6">
-                            We couldn't find any resources matching your current filters or search query.
-                        </Text>
-                    </View>
-                }
-                refreshing={refreshing}
-                onRefresh={loadLibraryData}
-            />
+                    }
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                />
+            </KeyboardAvoidingView>
         </View>
     );
 };

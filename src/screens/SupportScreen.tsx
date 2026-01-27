@@ -1,25 +1,27 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StatusBar, Linking, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 const SupportScreen = ({ navigation }: any) => {
+    const scheme = useColorScheme();
+    const isDark = scheme === 'dark';
 
     const handleWhatsApp = () => {
-        Linking.openURL('whatsapp://send?text=Hello, I need help with Nurse Learning Corner&phone=+260970000000');
+        Linking.openURL('whatsapp://send?text=Hello, I need help with Nurse Learning Corner&phone=+260974123013');
     };
 
     const handleEmail = () => {
-        Linking.openURL('mailto:support@nurselearningcorner.com');
+        Linking.openURL('mailto:davidchileshe074@gmail.com');
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50" edges={['top']}>
-            <StatusBar barStyle="dark-content" />
-            <View className="flex-row items-center px-6 py-4 border-b border-slate-100 bg-white">
+        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top']}>
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+            <View className="flex-row items-center px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <TouchableOpacity onPress={() => navigation.goBack()} className="p-2 -ml-2">
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? "#FFFFFF" : "#1E293B"} />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-slate-900 ml-2">Help & Support</Text>
+                <Text className="text-xl font-bold text-slate-900 dark:text-white ml-2">Help & Support</Text>
             </View>
 
             <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
@@ -34,52 +36,52 @@ const SupportScreen = ({ navigation }: any) => {
                     <Text className="text-blue-100 font-medium">Our team is available 24/7 to assist you with any issues.</Text>
                 </View>
 
-                <Text className="text-slate-900 font-bold mb-4 ml-1">Contact Us</Text>
+                <Text className="text-slate-900 dark:text-white font-bold mb-4 ml-1">Contact Us</Text>
 
                 <TouchableOpacity
                     onPress={handleWhatsApp}
-                    className="bg-white p-5 rounded-2xl border border-slate-200 flex-row items-center mb-4 shadow-sm"
+                    className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex-row items-center mb-4 shadow-sm"
                 >
-                    <View className="w-10 h-10 bg-green-50 rounded-xl items-center justify-center">
+                    <View className="w-10 h-10 bg-green-50 dark:bg-green-900/40 rounded-xl items-center justify-center">
                         <MaterialCommunityIcons name="whatsapp" size={24} color="#22C55E" />
                     </View>
                     <View className="ml-4 flex-1">
-                        <Text className="text-slate-800 font-bold">Chat on WhatsApp</Text>
-                        <Text className="text-slate-500 text-xs">Fastest response time</Text>
+                        <Text className="text-slate-800 dark:text-white font-bold">Chat on WhatsApp</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-xs">Fastest response time</Text>
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     onPress={handleEmail}
-                    className="bg-white p-5 rounded-2xl border border-slate-200 flex-row items-center mb-4 shadow-sm"
+                    className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex-row items-center mb-4 shadow-sm"
                 >
-                    <View className="w-10 h-10 bg-blue-50 rounded-xl items-center justify-center">
+                    <View className="w-10 h-10 bg-blue-50 dark:bg-blue-900/40 rounded-xl items-center justify-center">
                         <MaterialCommunityIcons name="email-outline" size={24} color="#2563EB" />
                     </View>
                     <View className="ml-4 flex-1">
-                        <Text className="text-slate-800 font-bold">Email Support</Text>
-                        <Text className="text-slate-500 text-xs">For detailed inquiries</Text>
+                        <Text className="text-slate-800 dark:text-white font-bold">Email Support</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-xs">For detailed inquiries</Text>
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
                 </TouchableOpacity>
 
-                <View className="bg-white p-6 rounded-3xl border border-slate-200 mt-4 mb-10">
-                    <Text className="text-slate-900 font-bold mb-4">FAQ</Text>
+                <View className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 mt-4 mb-10">
+                    <Text className="text-slate-900 dark:text-white font-bold mb-4">FAQ</Text>
 
                     <View className="mb-4">
-                        <Text className="text-slate-800 font-bold text-sm mb-1">How do I redeem a code?</Text>
-                        <Text className="text-slate-500 text-sm">Go to Account {'>'} Enter code in the Redeem section.</Text>
+                        <Text className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-1">How do I redeem a code?</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-sm">Go to Account {'>'} Enter code in the Redeem section.</Text>
                     </View>
 
                     <View className="mb-4">
-                        <Text className="text-slate-800 font-bold text-sm mb-1">Can I use multiple devices?</Text>
-                        <Text className="text-slate-500 text-sm">For security reasons, your account is locked to the primary device you register with.</Text>
+                        <Text className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-1">Can I use multiple devices?</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-sm">For security reasons, your account is locked to the primary device you register with.</Text>
                     </View>
 
                     <View>
-                        <Text className="text-slate-800 font-bold text-sm mb-1">How can I download content?</Text>
-                        <Text className="text-slate-500 text-sm">Click the download icon on any study material to access it offline.</Text>
+                        <Text className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-1">How can I download content?</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-sm">Click the download icon on any study material to access it offline.</Text>
                     </View>
                 </View>
             </ScrollView>

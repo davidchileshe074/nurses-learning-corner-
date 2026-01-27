@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, useWindowDimensions, StatusBar, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, useWindowDimensions, StatusBar, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -33,6 +33,8 @@ const ONBOARDING_DATA = [
 
 const OnboardingScreen = ({ navigation }: any) => {
     const { width } = useWindowDimensions();
+    const scheme = useColorScheme();
+    const isDark = scheme === 'dark';
     const flatListRef = useRef<FlatList>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -61,13 +63,13 @@ const OnboardingScreen = ({ navigation }: any) => {
     }).current;
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
             {/* Header / Skip */}
             <View className="flex-row justify-end p-6">
                 <TouchableOpacity onPress={handleSkip}>
-                    <Text className="text-slate-500 font-bold text-base">Skip</Text>
+                    <Text className="text-slate-500 dark:text-slate-400 font-bold text-base">Skip</Text>
                 </TouchableOpacity>
             </View>
 
@@ -77,13 +79,13 @@ const OnboardingScreen = ({ navigation }: any) => {
                 data={ONBOARDING_DATA}
                 renderItem={({ item }) => (
                     <View style={{ width }} className="items-center px-6 justify-center">
-                        <View className="w-56 h-56 bg-blue-50 rounded-full items-center justify-center mb-8">
-                            <MaterialCommunityIcons name={item.icon as any} size={80} color="#2563EB" />
+                        <View className="w-56 h-56 bg-blue-50 dark:bg-blue-900/20 rounded-full items-center justify-center mb-8">
+                            <MaterialCommunityIcons name={item.icon as any} size={80} color={isDark ? "#60A5FA" : "#2563EB"} />
                         </View>
-                        <Text className="text-3xl font-black text-slate-900 text-center mb-3 tracking-tight">
+                        <Text className="text-3xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tight">
                             {item.title}
                         </Text>
-                        <Text className="text-slate-500 text-base text-center leading-relaxed font-medium px-4">
+                        <Text className="text-slate-500 dark:text-slate-400 text-base text-center leading-relaxed font-medium px-4">
                             {item.description}
                         </Text>
                     </View>
@@ -100,11 +102,11 @@ const OnboardingScreen = ({ navigation }: any) => {
             {/* Footer */}
             <View className="px-8 pb-12 pt-4 items-center">
                 {/* Dots */}
-                <View className="flex-row justify-center mb-8 space-x-2">
+                <View className="flex-row justify-center mb-8 gap-2">
                     {ONBOARDING_DATA.map((_, index) => (
                         <View
                             key={index}
-                            className={`h-2 rounded-full transition-all ${currentIndex === index ? 'w-6 bg-blue-600' : 'w-2 bg-slate-200'}`}
+                            className={`h-2 rounded-full transition-all ${currentIndex === index ? 'w-6 bg-blue-600 dark:bg-blue-500' : 'w-2 bg-slate-200 dark:bg-slate-800'}`}
                         />
                     ))}
                 </View>
@@ -113,7 +115,7 @@ const OnboardingScreen = ({ navigation }: any) => {
                 {currentIndex === ONBOARDING_DATA.length - 1 ? (
                     <TouchableOpacity
                         onPress={handleNext}
-                        className="bg-blue-600 h-14 w-full rounded-2xl items-center justify-center shadow-lg shadow-blue-200 active:scale-[0.98]"
+                        className="bg-blue-600 dark:bg-blue-600 h-14 w-full rounded-2xl items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.98]"
                     >
                         <Text className="text-white font-bold text-base uppercase tracking-widest">
                             Get Started
@@ -122,7 +124,7 @@ const OnboardingScreen = ({ navigation }: any) => {
                 ) : (
                     <TouchableOpacity
                         onPress={handleNext}
-                        className="bg-blue-600 w-16 h-16 rounded-full items-center justify-center shadow-lg shadow-blue-200 active:scale-[0.80]"
+                        className="bg-blue-600 dark:bg-blue-600 w-16 h-16 rounded-full items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.80]"
                     >
                         <MaterialCommunityIcons name="arrow-right" size={28} color="white" />
                     </TouchableOpacity>

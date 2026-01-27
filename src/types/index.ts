@@ -19,6 +19,7 @@ export interface UserProfile {
     avatarUrl?: string;
     avatarFileId?: string;
     lastNotificationCheck?: string;
+    pushToken?: string;
 }
 
 export interface AppNotification {
