@@ -1,74 +1,73 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AuthProvider } from './src/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
-import Navigation, { linking } from './src/navigation/index';
-import { initDownloads } from './src/services/downloads';
 import * as SplashScreen from 'expo-splash-screen';
 import Toast from 'react-native-toast-message';
 import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useColorScheme } from 'react-native';
+
+import { AuthProvider } from './src/context/AuthContext';
+import Navigation, { linking } from './src/navigation';
+import { initDownloads } from './src/services/downloads';
+
 import "./global.css";
 
-// Keep the splash screen visible while we fetch resources
+// Keep splash visible while loading
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const [appIsReady, setAppIsReady] = React.useState(false);
 
-  // 1. Prevent Screen Capture globally for security
   usePreventScreenCapture();
-
-  // 2. Adapt to System Theme
   const scheme = useColorScheme();
 
   React.useEffect(() => {
+    let mounted = true;
+
     async function prepare() {
       try {
-        // Initialize downloads
         await initDownloads();
-
-        // Artificially delay for 2 seconds to show splash screen
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
         console.warn(e);
       } finally {
-        // Tell the application to render
-        setAppIsReady(true);
+        if (mounted) setAppIsReady(true);
       }
     }
 
     prepare();
+    return () => { mounted = false; };
   }, []);
 
   const onLayoutRootView = React.useCallback(async () => {
     if (appIsReady) {
-      // This tells the splash screen to hide immediately!
       await SplashScreen.hideAsync();
     }
   }, [appIsReady]);
 
-  if (!appIsReady) {
-    return null;
-  }
+  if (!appIsReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
-        <NavigationContainer
-          onReady={() => console.log('Navigation Container Ready')}
-          theme={scheme === 'dark' ? DarkTheme : DefaultTheme}
-          linking={linking}
-        >
-          <AuthProvider>
+        {/* ✅ Provider should wrap the whole app */}
+        <AuthProvider>
+          {/* ✅ NavigationContainer should directly wrap navigators */}
+          <NavigationContainer
+            theme={scheme === 'dark' ? DarkTheme : DefaultTheme}
+            linking={linking}
+            onReady={() => console.log('Navigation Container Ready')}
+          >
             <Navigation />
-            <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-          </AuthProvider>
-        </NavigationContainer>
+          </NavigationContainer>
+
+          {/* ✅ Keep these outside the container */}
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <Toast />
+        </AuthProvider>
       </SafeAreaProvider>
-      <Toast />
     </GestureHandlerRootView>
   );
 }

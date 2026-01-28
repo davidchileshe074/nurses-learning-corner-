@@ -24,6 +24,9 @@ interface DownloadMetadata {
     id: string;
     title: string;
     type: string;
+    subject?: string;
+    program?: string;
+    yearOfStudy?: string;
     expiryDate: string;
     localUri: string;
     lastPosition?: number;
@@ -89,7 +92,10 @@ export const downloadContent = async (
     id: string,
     title: string,
     type: string,
-    fileId: string
+    fileId: string,
+    subject?: string,
+    program?: string,
+    yearOfStudy?: string
 ) => {
     const downloadsDir = getDownloadsDir();
     if (!downloadsDir) {
@@ -125,6 +131,9 @@ export const downloadContent = async (
             id,
             title,
             type,
+            subject,
+            program,
+            yearOfStudy,
             expiryDate: expiryDate.toISOString(),
             localUri: result.uri,
         };

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform, StatusBar, useColorScheme } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
@@ -8,8 +7,7 @@ import { Program, YearOfStudy } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
-const RegisterScreen = () => {
-    const navigation = useNavigation<any>();
+const RegisterScreen = ({ navigation }: any) => {
     const scheme = useColorScheme();
     const isDark = scheme === 'dark';
     const { setUser } = useAuth();

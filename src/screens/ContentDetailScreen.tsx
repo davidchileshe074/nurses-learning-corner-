@@ -118,7 +118,15 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
 
     const handleDownload = async () => {
         setDownloading(true);
-        const success = await downloadContent(item.$id, item.title, item.type, item.storageFileId);
+        const success = await downloadContent(
+            item.$id,
+            item.title,
+            item.type,
+            item.storageFileId,
+            item.subject,
+            item.program,
+            item.yearOfStudy
+        );
         setDownloading(false);
         if (success) {
             Toast.show({

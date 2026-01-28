@@ -17,15 +17,13 @@ import { useAuth } from '../context/AuthContext';
 import { getSubscriptionStatus, redeemAccessCode } from '../services/subscription';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
-import { useNavigation } from '@react-navigation/native';
 import { getNotifications } from '../services/notifications';
 import { AppNotification } from '../types';
 import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
-const AccountScreen = () => {
-    const navigation = useNavigation<any>();
+const AccountScreen = ({ navigation }: any) => {
     const { user, signOut } = useAuth();
     const scheme = useColorScheme();
     const isDark = scheme === 'dark';
