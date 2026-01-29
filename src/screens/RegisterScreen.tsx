@@ -23,7 +23,7 @@ const RegisterScreen = ({ navigation }: any) => {
     const programs: { value: Program; label: string }[] = [
         { value: 'REGISTERED-NURSING', label: 'Registered Nursing' },
         { value: 'MIDWIFERY', label: 'Midwifery' },
-        { value: 'PUBLIC-HEALTH', label: 'Published Health Nursing' },
+        { value: 'PUBLIC-HEALTH', label: 'Public Health Nursing' },
         { value: 'MENTAL-HEALTH', label: 'Mental Health Nursing' },
         { value: 'ONCOLOGY', label: 'Oncology Nursing' },
         { value: 'PAEDIATRIC', label: 'Paediatric Nursing' },

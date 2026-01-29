@@ -57,6 +57,7 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [activeSubject, setActiveSubject] = useState<string | null>(initialSubject || null);
     const [activeFilter, setActiveFilter] = useState('All'); // 'All', 'Downloads', 'PDF'...
     const [showAll, setShowAll] = useState(false);
@@ -179,6 +180,13 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
     }, [showAll, user?.program, user?.yearOfStudy, activeSubject, activeFilter]);
 
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
         if (initialSubject) setActiveSubject(initialSubject);
     }, [initialSubject]);
 
@@ -219,20 +227,20 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
 
     // Client-side search filtering
     const displayedContent = useMemo(() => {
-        if (!searchQuery) return allContent;
-        const query = searchQuery.toLowerCase();
+        if (!debouncedSearchQuery) return allContent;
+        const query = debouncedSearchQuery.toLowerCase();
         return allContent.filter(item =>
             item.title.toLowerCase().includes(query) ||
             (item.description && item.description.toLowerCase().includes(query)) ||
             (item.subject && item.subject.toLowerCase().includes(query))
         );
-    }, [allContent, searchQuery]);
+    }, [allContent, debouncedSearchQuery]);
 
 
     // -- Suggestions Logic --
     const suggestions = useMemo(() => {
-        if (!searchQuery || searchQuery.length < 2) return [];
-        const query = searchQuery.toLowerCase();
+        if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) return [];
+        const query = debouncedSearchQuery.toLowerCase();
 
         // Find matching subjects (courses)
         const matchingCourses = COURSES.filter(c => c.toLowerCase().includes(query)).map(c => ({ type: 'subject', label: c, id: `subj-${c}` }));
@@ -244,7 +252,7 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
             .map(item => ({ type: 'content', label: item.title, id: `cont-${item.$id}`, item }));
 
         return [...matchingCourses, ...matchingTitles];
-    }, [searchQuery, allContent, COURSES]);
+    }, [debouncedSearchQuery, allContent]);
 
 
     // -- Render Helpers --
@@ -418,7 +426,10 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
                                         {activeSubject && (
                                             <View className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800/50 mr-2 flex-row items-center">
                                                 <Text className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mr-1">{activeSubject}</Text>
-                                                <TouchableOpacity onPress={() => setActiveSubject(null)}>
+                                                <TouchableOpacity
+                                                    onPress={() => setActiveSubject(null)}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                >
                                                     <MaterialCommunityIcons name="close" size={10} color="#2563EB" />
                                                 </TouchableOpacity>
                                             </View>
@@ -426,7 +437,10 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
                                         {activeFilter !== 'All' && (
                                             <View className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 mr-2 flex-row items-center">
                                                 <Text className="text-[9px] font-bold text-slate-600 dark:text-slate-400 mr-1">{activeFilter}</Text>
-                                                <TouchableOpacity onPress={() => setActiveFilter('All')}>
+                                                <TouchableOpacity
+                                                    onPress={() => setActiveFilter('All')}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                >
                                                     <MaterialCommunityIcons name="close" size={10} color="#475569" />
                                                 </TouchableOpacity>
                                             </View>
@@ -554,11 +568,21 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
                 windowSize={5}
                 ListEmptyComponent={
                     <View className="items-center mt-20 px-10">
-                        <View className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center mb-4">
-                            <MaterialCommunityIcons name="book-search-outline" size={40} color={isDark ? "#475569" : "#CBD5E1"} />
+                        <View className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center mb-6">
+                            <MaterialCommunityIcons name="folder-search-outline" size={48} color={isDark ? "#475569" : "#CBD5E1"} />
                         </View>
-                        <Text className="text-lg font-black text-slate-900 dark:text-white mb-2">No results found</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 text-center font-medium">Try adjusting your filters or search query</Text>
+                        <Text className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">No Resources Found</Text>
+                        <Text className="text-slate-400 dark:text-slate-500 text-center font-medium px-4">
+                            Try adjusting your filters or search query to find the learning material you need.
+                        </Text>
+                        {(activeFilter !== 'All' || activeSubject || debouncedSearchQuery) && (
+                            <TouchableOpacity
+                                onPress={() => { setActiveFilter('All'); setActiveSubject(null); setSearchQuery(''); }}
+                                className="mt-8 bg-blue-600 px-8 py-3 rounded-2xl shadow-lg shadow-blue-500/30"
+                            >
+                                <Text className="text-white font-black uppercase tracking-widest text-[11px]">Clear All Filters</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 }
                 refreshing={refreshing}

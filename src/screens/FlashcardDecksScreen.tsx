@@ -75,7 +75,7 @@ const FlashcardDecksScreen = ({ navigation }: any) => {
         }
     };
 
-    const renderDeckItem = ({ item }: { item: FlashcardDeck }) => (
+    const renderDeckItem = React.useCallback(({ item }: { item: FlashcardDeck }) => (
         <TouchableOpacity
             onPress={() => navigation.navigate('FlashcardList', { deckId: item.$id, deckTitle: item.title })}
             activeOpacity={0.8}
@@ -111,7 +111,7 @@ const FlashcardDecksScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
             </View>
         </TouchableOpacity>
-    );
+    ), [isDark, navigation]);
 
     return (
         <View className="flex-1 bg-white dark:bg-slate-950">

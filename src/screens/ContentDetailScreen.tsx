@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,13 @@ import {
     ActivityIndicator,
     Alert,
     StatusBar,
-    useColorScheme
+    useColorScheme,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    TextInput,
+    Modal,
+    Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Pdf from 'react-native-pdf';
@@ -22,7 +28,7 @@ import Toast from 'react-native-toast-message';
 import { addToRecent } from '../services/recent';
 import { useAuth } from '../context/AuthContext';
 import { notesService } from '../services/notes';
-import { KeyboardAvoidingView, Platform, ScrollView, TextInput, Modal, Pressable } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 
 
 const { width, height } = Dimensions.get('window');
@@ -46,6 +52,23 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
     const [isResumeModalVisible, setIsResumeModalVisible] = useState(false);
     const [savedPos, setSavedPos] = useState(0);
     const [readyToRender, setReadyToRender] = useState(false);
+    const isFocused = useIsFocused();
+    const [shouldMountPdf, setShouldMountPdf] = useState(false);
+
+    // Strict Life-cycle management for PDF component on Android
+    useEffect(() => {
+        let timer: any;
+        if (isFocused && readyToRender && !isResumeModalVisible && item.type === 'PDF') {
+            // Delay mount until navigation/modal transition is fully settled
+            timer = setTimeout(() => setShouldMountPdf(true), 500);
+        } else {
+            setShouldMountPdf(false);
+        }
+        return () => {
+            if (timer) clearTimeout(timer);
+            setShouldMountPdf(false);
+        };
+    }, [isFocused, readyToRender, isResumeModalVisible, item.type]);
 
     // Resolve local URI if available and check download status
     useEffect(() => {
@@ -160,6 +183,28 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
             audioPlayer.play();
         }
     };
+
+    // Stable PDF source to prevent re-renders
+    const pdfSource = useMemo(() => {
+        if (!contentUri) return null;
+        return {
+            uri: contentUri,
+            cache: true
+        };
+    }, [contentUri]);
+
+    const handlePdfPageChange = useCallback((page: number) => {
+        savePlaybackPosition(item.$id, page);
+    }, [item.$id]);
+
+    const handlePdfError = useCallback((error: any) => {
+        console.log('[PDF Error]', error);
+        Toast.show({
+            type: 'error',
+            text1: 'Studying Error',
+            text2: 'Failed to load document.'
+        });
+    }, []);
 
     const handleDownload = async () => {
         setDownloading(true);
@@ -312,25 +357,24 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
 
                     ) : (
                         <View className="flex-1 bg-slate-50 dark:bg-slate-950">
-                            <Pdf
-                                source={{ uri: contentUri, cache: true }}
-                                page={initialPage}
-                                trustAllCerts={false}
-                                onLoadComplete={() => setLoading(false)}
-                                onPageChanged={(page) => {
-                                    savePlaybackPosition(item.$id, page);
-                                }}
-                                onError={(error) => {
-                                    console.log(error);
-                                    Toast.show({
-                                        type: 'error',
-                                        text1: 'Studying Error',
-                                        text2: 'Failed to load document.'
-                                    });
-                                }}
-                                style={{ flex: 1, width: width, height: height, backgroundColor: isDark ? '#020617' : '#F8FAFC' }}
-                                enablePaging={true}
-                            />
+                            {shouldMountPdf && pdfSource && (
+                                <Pdf
+                                    key={`pdf-${item.$id}-${initialPage}`} // Force clean instance
+                                    source={pdfSource}
+                                    page={initialPage}
+                                    trustAllCerts={false}
+                                    onLoadComplete={() => setLoading(false)}
+                                    onPageChanged={handlePdfPageChange}
+                                    onError={handlePdfError}
+                                    style={{
+                                        flex: 1,
+                                        width: width,
+                                        height: height,
+                                        backgroundColor: isDark ? '#020617' : '#F8FAFC'
+                                    }}
+                                    enablePaging={true}
+                                />
+                            )}
                             {loading && (
                                 <View className="absolute inset-0 bg-white dark:bg-slate-950 items-center justify-center">
                                     <ActivityIndicator size="large" color="#2563EB" />

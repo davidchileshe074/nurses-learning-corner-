@@ -100,7 +100,7 @@ export const registerForPushNotificationsAsync = async (): Promise<string | unde
 
     try {
         const tokenData = await Notifications.getExpoPushTokenAsync({
-            // projectId: 'your-project-id' // Optional for simple managed workflows
+            projectId: '55c3c469-82f3-4453-905b-5e2ab6d0dccf'
         });
         const token = tokenData.data;
         console.log('Push Token:', token);

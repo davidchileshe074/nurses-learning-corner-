@@ -129,6 +129,20 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
         transform: [{ rotateY: backInterpolate }]
     };
 
+    // Smoothing out the progress bar
+    const progressAnim = useState(new Animated.Value(0))[0];
+
+    useEffect(() => {
+        if (flashcards.length > 0) {
+            Animated.spring(progressAnim, {
+                toValue: (currentIndex + 1) / flashcards.length,
+                useNativeDriver: false, // width doesn't support native driver
+                friction: 10,
+                tension: 40
+            }).start();
+        }
+    }, [currentIndex, flashcards.length]);
+
     if (loading) {
         return (
             <View className="flex-1 bg-white dark:bg-slate-950 items-center justify-center">
@@ -180,9 +194,19 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
                                 <Animated.View
                                     style={[
                                         frontAnimatedStyle,
-                                        { backfaceVisibility: 'hidden' }
+                                        {
+                                            backfaceVisibility: 'hidden',
+                                            transform: [
+                                                { perspective: 1000 },
+                                                { rotateY: frontInterpolate }
+                                            ],
+                                            shadowColor: "#000",
+                                            shadowOffset: { width: 0, height: 20 },
+                                            shadowOpacity: isFlipped ? 0 : 0.1,
+                                            shadowRadius: 30,
+                                        }
                                     ]}
-                                    className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[48px] p-10 items-center justify-center border-2 border-slate-50 dark:border-slate-800 shadow-2xl elevation-10"
+                                    className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[48px] p-10 items-center justify-center border-2 border-slate-50 dark:border-slate-800 elevation-10"
                                 >
                                     <View className="absolute top-10 left-10">
                                         <MaterialCommunityIcons name="help-circle-outline" size={32} color={isDark ? "#1E293B" : "#F1F5F9"} />
@@ -200,9 +224,19 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
                                 <Animated.View
                                     style={[
                                         backAnimatedStyle,
-                                        { backfaceVisibility: 'hidden' }
+                                        {
+                                            backfaceVisibility: 'hidden',
+                                            transform: [
+                                                { perspective: 1000 },
+                                                { rotateY: backInterpolate }
+                                            ],
+                                            shadowColor: "#000",
+                                            shadowOffset: { width: 0, height: 20 },
+                                            shadowOpacity: isFlipped ? 0.3 : 0,
+                                            shadowRadius: 40,
+                                        }
                                     ]}
-                                    className="absolute inset-0 bg-blue-600 rounded-[48px] p-10 items-center justify-center shadow-2xl elevation-10"
+                                    className="absolute inset-0 bg-blue-600 rounded-[48px] p-10 items-center justify-center elevation-10"
                                 >
                                     <View className="absolute top-10 left-10">
                                         <MaterialCommunityIcons name="check-decagram-outline" size={32} color="rgba(255,255,255,0.2)" />
@@ -226,7 +260,12 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
                                     <View className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                                         <Animated.View
                                             className="h-full bg-blue-600 rounded-full"
-                                            style={{ width: `${((currentIndex + 1) / flashcards.length) * 100}%` }}
+                                            style={{
+                                                width: progressAnim.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: ['0%', '100%']
+                                                })
+                                            }}
                                         />
                                     </View>
                                 </View>

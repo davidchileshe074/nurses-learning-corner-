@@ -56,13 +56,6 @@ export const redeemAccessCode = async (code: string, userId: string) => {
             JSON.stringify({ code, userId })
         );
 
-        // Debug log to see why parsing might fail
-        console.log('[DEBUG] Function Result:', {
-            status: result.status,
-            responseBody: result.responseBody,
-            errors: result.errors
-        });
-
         if (!result.responseBody) {
             throw new Error(`Function returned empty response. Status: ${result.status}`);
         }

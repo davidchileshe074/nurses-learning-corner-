@@ -181,40 +181,36 @@ const LoginScreen = ({ navigation }: any) => {
                 <View className="absolute inset-0 z-50">
                     {/* Backdrop */}
                     <TouchableOpacity
-                        className="absolute inset-0 bg-black/50"
+                        className="absolute inset-0 bg-black/60"
                         activeOpacity={1}
                         onPress={() => setForgotPasswordModalVisible(false)}
                     />
 
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        className="flex-1 justify-center px-6"
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100}
-                    >
-                        <View className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden">
+                    <View className="flex-1 justify-center px-6">
+                        <View className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
                             <ScrollView
                                 bounces={false}
                                 showsVerticalScrollIndicator={false}
                                 keyboardShouldPersistTaps="handled"
                             >
                                 <View className="p-8">
-                                    <View className="items-center mb-6">
-                                        <View className="w-16 h-1 bg-slate-200 dark:bg-slate-800 rounded-full mb-6" />
-                                        <View className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-full items-center justify-center mb-4">
-                                            <MaterialCommunityIcons name="lock-reset" size={28} color={isDark ? "#60A5FA" : "#2563EB"} />
+                                    <View className="items-center mb-8">
+                                        <View className="w-16 h-1 bg-slate-100 dark:bg-slate-800 rounded-full mb-8" />
+                                        <View className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-[32px] items-center justify-center mb-6">
+                                            <MaterialCommunityIcons name="lock-reset" size={38} color="#2563EB" />
                                         </View>
-                                        <Text className="text-2xl font-bold text-slate-900 dark:text-white">Reset Password</Text>
-                                        <Text className="text-slate-500 dark:text-slate-400 text-center mt-2 mx-4">
-                                            Enter your email address and we'll send you instructions to reset your password.
+                                        <Text className="text-3xl font-black text-slate-900 dark:text-white text-center">Reset Access</Text>
+                                        <Text className="text-slate-500 dark:text-slate-400 text-center mt-3 font-medium px-4">
+                                            Enter your email to receive recovery instructions.
                                         </Text>
                                     </View>
 
-                                    <View className="mb-8">
-                                        <Text className="text-slate-900 dark:text-slate-300 font-bold text-sm mb-2 ml-1">Email Address</Text>
-                                        <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 h-14">
-                                            <MaterialCommunityIcons name="email-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                                    <View className="mb-10">
+                                        <Text className="text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-3 ml-1">Verified Email</Text>
+                                        <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 h-16">
+                                            <MaterialCommunityIcons name="email-outline" size={22} color={isDark ? "#475569" : "#94A3B8"} />
                                             <TextInput
-                                                className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
+                                                className="flex-1 ml-4 text-slate-900 dark:text-white font-bold"
                                                 placeholder="nurse@example.com"
                                                 placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                                 value={resetEmail}
@@ -227,27 +223,27 @@ const LoginScreen = ({ navigation }: any) => {
                                     </View>
 
                                     <TouchableOpacity
-                                        className={`bg-blue-600 h-14 rounded-xl items-center justify-center shadow-lg shadow-blue-200 ${resetLoading ? 'opacity-70' : ''}`}
+                                        className={`bg-blue-600 h-16 rounded-2xl items-center justify-center shadow-xl shadow-blue-500/20 ${resetLoading ? 'opacity-70' : ''}`}
                                         onPress={handleForgotPassword}
                                         disabled={resetLoading}
                                     >
                                         {resetLoading ? (
                                             <ActivityIndicator color="white" />
                                         ) : (
-                                            <Text className="text-white font-bold text-lg">Send Link</Text>
+                                            <Text className="text-white font-black text-base uppercase tracking-widest">Send Recovery Link</Text>
                                         )}
                                     </TouchableOpacity>
 
                                     <TouchableOpacity
-                                        className="mt-6 items-center py-2"
+                                        className="mt-6 items-center py-4"
                                         onPress={() => setForgotPasswordModalVisible(false)}
                                     >
-                                        <Text className="text-slate-500 dark:text-slate-400 font-bold">Cancel</Text>
+                                        <Text className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-[10px]">Cancel Recovery</Text>
                                     </TouchableOpacity>
                                 </View>
                             </ScrollView>
                         </View>
-                    </KeyboardAvoidingView>
+                    </View>
                 </View>
             )}
         </SafeAreaView>

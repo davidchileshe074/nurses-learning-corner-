@@ -58,7 +58,6 @@ export default function App() {
           <NavigationContainer
             theme={scheme === 'dark' ? DarkTheme : DefaultTheme}
             linking={linking}
-            onReady={() => console.log('Navigation Container Ready')}
           >
             <Navigation />
           </NavigationContainer>
