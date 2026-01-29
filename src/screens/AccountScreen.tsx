@@ -205,7 +205,35 @@ const AccountScreen = ({ navigation }: any) => {
                         )}
 
                         {/* Settings Links */}
-                        <View className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-10">
+                        <View className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Notebook')}
+                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
+                            >
+                                <View className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl items-center justify-center">
+                                    <MaterialCommunityIcons name="book-edit-outline" size={20} color={isDark ? "#60A5FA" : "#2563EB"} />
+                                </View>
+                                <View className="flex-1 ml-4">
+                                    <Text className="text-slate-900 dark:text-white font-black">My Study Notebook</Text>
+                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-0.5">View your study reflections</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('FlashcardDecks')}
+                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
+                            >
+                                <View className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl items-center justify-center">
+                                    <MaterialCommunityIcons name="cards-variant" size={20} color={isDark ? "#818CF8" : "#4F46E5"} />
+                                </View>
+                                <View className="flex-1 ml-4">
+                                    <Text className="text-slate-900 dark:text-white font-black">My Memory Decks</Text>
+                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-0.5">Digital Flashcard Revision</Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
+                            </TouchableOpacity>
+
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Notifications')}
                                 className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"

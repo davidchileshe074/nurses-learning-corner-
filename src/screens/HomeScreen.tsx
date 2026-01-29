@@ -21,6 +21,8 @@ import { getSubscriptionStatus } from '../services/subscription';
 import { Subscription, AppNotification } from '../types';
 import { checkAndGenerateNotifications, getNotifications } from '../services/notifications';
 import { getRecentItems } from '../services/recent';
+import { checkSubscriptionExpiry } from '../services/subscription';
+import { removeAllDownloads } from '../services/downloads';
 
 
 const { width } = Dimensions.get('window');
@@ -93,6 +95,13 @@ const HomeScreen = ({ navigation }: any) => {
             ]);
             setHasUnread(notifications.some(n => !n.isRead));
             setRecentItems(recent);
+
+            // SECURITY: If subscription is expired, purge all local downloads
+            const isSubscribed = checkSubscriptionExpiry(subStatus);
+            if (!isSubscribed) {
+                console.log('[Security] Subscription expired or inactive. Purging local content.');
+                await removeAllDownloads();
+            }
 
             // Save to cache for offline availability
             saveHomeStatsToCache({
@@ -281,6 +290,42 @@ const HomeScreen = ({ navigation }: any) => {
                             </ScrollView>
                         </View>
                     )}
+
+                    {/* Main Study Tools - Revision Center */}
+                    <View className="px-6 mb-12">
+                        <View className="flex-row justify-between items-end mb-6">
+                            <View>
+                                <Text className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">Revision Center</Text>
+                                <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold mt-1 uppercase tracking-widest">Master Your Concepts</Text>
+                            </View>
+                        </View>
+
+                        <View className="flex-row gap-6">
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('FlashcardDecks')}
+                                activeOpacity={0.9}
+                                className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                            >
+                                <View className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl items-center justify-center mb-4">
+                                    <MaterialCommunityIcons name="cards-variant" size={26} color={isDark ? "#60A5FA" : "#2563EB"} />
+                                </View>
+                                <Text className="text-slate-900 dark:text-white font-black text-sm mb-1">Knowledge Base</Text>
+                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-3">Flashcard Study</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => navigation.navigate('Notebook')}
+                                activeOpacity={0.9}
+                                className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                            >
+                                <View className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl items-center justify-center mb-4">
+                                    <MaterialCommunityIcons name="notebook-outline" size={26} color={isDark ? "#818CF8" : "#4F46E5"} />
+                                </View>
+                                <Text className="text-slate-900 dark:text-white font-black text-sm mb-1">My Revision Pad</Text>
+                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-3">Study Reflections</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
                     {/* Main Module Grid */}
                     <View className="px-6 mb-12">

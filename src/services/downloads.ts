@@ -225,3 +225,20 @@ export const getLocalContentUri = async (id: string): Promise<string | null> => 
         return null;
     }
 };
+export const removeAllDownloads = async () => {
+    try {
+        const metadata = await getDownloadsMetadata();
+        for (const id in metadata) {
+            const item = metadata[id];
+            await FileSystem.deleteAsync(item.localUri, { idempotent: true });
+        }
+        const path = getMetadataFilePath();
+        if (path) {
+            await FileSystem.writeAsStringAsync(path, JSON.stringify({}));
+        }
+        return true;
+    } catch (e) {
+        console.error('[Downloads] Remove All Error:', e);
+        return false;
+    }
+};

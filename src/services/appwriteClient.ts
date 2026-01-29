@@ -8,6 +8,9 @@ export const APPWRITE_CONFIG = {
     subscriptionsCollectionId: 'subscriptions',
     contentCollectionId: 'content',
     accessCodesCollectionId: 'accessCodes',
+    notesCollectionId: 'notes',
+    flashcardDecksCollectionId: 'flashcard_decks',
+    flashcardsCollectionId: 'flashcards',
     storageBucketId: '696768cb0021abe33b61',
 };
 

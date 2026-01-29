@@ -20,6 +20,10 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import PrivacyScreen from '../screens/PrivacyScreen';
 import SupportScreen from '../screens/SupportScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import NotebookScreen from '../screens/NotebookScreen';
+import FlashcardDecksScreen from '../screens/FlashcardDecksScreen';
+import FlashcardListScreen from '../screens/FlashcardListScreen';
+import FlashcardStudyScreen from '../screens/FlashcardStudyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -127,6 +131,10 @@ const Navigation = () => {
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="ContentDetail" component={ContentDetailScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="Notebook" component={NotebookScreen} />
+          <Stack.Screen name="FlashcardDecks" component={FlashcardDecksScreen} />
+          <Stack.Screen name="FlashcardList" component={FlashcardListScreen} />
+          <Stack.Screen name="FlashcardStudy" component={FlashcardStudyScreen} />
           <Stack.Screen name="Privacy" component={PrivacyScreen} />
           <Stack.Screen name="Support" component={SupportScreen} />
         </Stack.Group>
