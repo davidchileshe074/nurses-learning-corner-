@@ -2,8 +2,16 @@
 module.exports = {
     content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
     presets: [require("nativewind/preset")],
+    plugins: [],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['PlusJakartaSans_500Medium'],
+                body: ['PlusJakartaSans_500Medium'],
+                bold: ['PlusJakartaSans_700Bold'],
+                extraBold: ['PlusJakartaSans_800ExtraBold'],
+                black: ['PlusJakartaSans_800ExtraBold'],
+            },
             colors: {
                 brand: {
                     DEFAULT: '#2563EB',
@@ -28,5 +36,4 @@ module.exports = {
             },
         },
     },
-    plugins: [],
 }

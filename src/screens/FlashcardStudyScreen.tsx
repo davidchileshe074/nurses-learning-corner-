@@ -4,23 +4,23 @@ import {
     Text,
     TouchableOpacity,
     ActivityIndicator,
-    StatusBar,
-    useColorScheme,
+
     Dimensions,
     Animated,
-    Modal
+    Modal,
+    Pressable
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { flashcardService, Flashcard } from '../services/flashcards';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-
-const { width, height } = Dimensions.get('window');
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const FlashcardStudyScreen = ({ route, navigation }: any) => {
     const { deckId, deckTitle } = route.params;
-    const isDark = useColorScheme() === 'dark';
+    const insets = useSafeAreaInsets();
+
     const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -60,7 +60,6 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
     const handleResume = (shouldResume: boolean) => {
         if (shouldResume) {
             setCurrentIndex(savedIndex);
-            // We don't shuffle if resuming to keep the user's perceived order consistent
         } else {
             setCurrentIndex(0);
             setFlashcards(prev => [...prev].sort(() => Math.random() - 0.5));
@@ -74,7 +73,7 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
         if (readyToRender && flashcards.length > 0) {
             SecureStore.setItemAsync(`fc_pos_${deckId}`, currentIndex.toString());
         }
-    }, [currentIndex, readyToRender]);
+    }, [currentIndex, readyToRender, deckId]);
 
     const handleFlip = () => {
         if (isFlipped) {
@@ -136,17 +135,17 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
         if (flashcards.length > 0) {
             Animated.spring(progressAnim, {
                 toValue: (currentIndex + 1) / flashcards.length,
-                useNativeDriver: false, // width doesn't support native driver
+                useNativeDriver: false,
                 friction: 10,
                 tension: 40
             }).start();
         }
-    }, [currentIndex, flashcards.length]);
+    }, [currentIndex, flashcards.length, progressAnim]);
 
     if (loading) {
         return (
-            <View className="flex-1 bg-white dark:bg-slate-950 items-center justify-center">
-                <ActivityIndicator size="large" color="#2563EB" />
+            <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );
     }
@@ -154,183 +153,195 @@ const FlashcardStudyScreen = ({ route, navigation }: any) => {
     const currentCard = flashcards[currentIndex];
 
     return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-                {/* Header */}
-                <View className="flex-row items-center px-6 py-4 justify-between">
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        className="w-11 h-11 items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-2xl"
-                    >
-                        <MaterialCommunityIcons name="close" size={24} color={isDark ? "#FFFFFF" : "#0F172A"} />
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="close" size={24} color={Colors.white} />
                     </TouchableOpacity>
-                    <View className="items-center">
-                        <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[2px] mb-0.5">Study Session</Text>
-                        <Text className="text-sm font-black text-slate-900 dark:text-white" numberOfLines={1}>{deckTitle}</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }} numberOfLines={1}>Study Deck</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>{deckTitle}</Text>
                     </View>
-                    <View className="bg-blue-50 dark:bg-blue-900/40 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800">
-                        <Text className="text-blue-600 dark:text-blue-400 font-black text-[10px]">{currentIndex + 1} / {flashcards.length}</Text>
+                    <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: BorderRadius.full }}>
+                        <Text style={{ color: Colors.white, fontSize: 13, fontWeight: '700' }}>{currentIndex + 1}/{flashcards.length}</Text>
                     </View>
                 </View>
+            </View>
 
-                {/* Defer rendering until choice is made */}
-                {(!readyToRender || isResumeModalVisible) ? (
-                    <View className="flex-1 items-center justify-center bg-white dark:bg-slate-950">
-                        <ActivityIndicator size="large" color="#2563EB" />
-                        <Text className="mt-4 text-slate-400 font-black text-[10px] uppercase tracking-widest">Resuming Session...</Text>
+            {(!readyToRender || isResumeModalVisible) ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : (
+                <View style={{ flex: 1 }}>
+                    {/* Progress Bar Container */}
+                    <View style={{ padding: Spacing.md, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                        <View style={{ height: 4, backgroundColor: Colors.border, borderRadius: 2, overflow: 'hidden' }}>
+                            <Animated.View
+                                style={{
+                                    height: '100%',
+                                    backgroundColor: Colors.primary,
+                                    width: progressAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: ['0%', '100%']
+                                    })
+                                }}
+                            />
+                        </View>
                     </View>
-                ) : (
-                    <>
-                        {/* Card Container */}
-                        <View className="flex-1 items-center justify-center px-6">
-                            <TouchableOpacity
-                                activeOpacity={1}
-                                onPress={handleFlip}
-                                className="w-full aspect-[4/5] relative"
+
+                    {/* Card Container */}
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg }}>
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={handleFlip}
+                            style={{ width: '100%', aspectRatio: 3 / 4 }}
+                        >
+                            {/* Front Side */}
+                            <Animated.View
+                                style={[
+                                    frontAnimatedStyle,
+                                    {
+                                        backfaceVisibility: 'hidden',
+                                        position: 'absolute',
+                                        inset: 0,
+                                        backgroundColor: Colors.white,
+                                        borderRadius: BorderRadius.sm,
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        padding: Spacing.xl,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        ...Shadow.medium,
+                                        transform: [
+                                            { perspective: 1000 },
+                                            { rotateY: frontInterpolate }
+                                        ]
+                                    }
+                                ]}
                             >
-                                {/* Front Side */}
-                                <Animated.View
-                                    style={[
-                                        frontAnimatedStyle,
-                                        {
-                                            backfaceVisibility: 'hidden',
-                                            transform: [
-                                                { perspective: 1000 },
-                                                { rotateY: frontInterpolate }
-                                            ],
-                                            shadowColor: "#000",
-                                            shadowOffset: { width: 0, height: 20 },
-                                            shadowOpacity: isFlipped ? 0 : 0.1,
-                                            shadowRadius: 30,
-                                        }
-                                    ]}
-                                    className="absolute inset-0 bg-white dark:bg-slate-900 rounded-[48px] p-10 items-center justify-center border-2 border-slate-50 dark:border-slate-800 elevation-10"
-                                >
-                                    <View className="absolute top-10 left-10">
-                                        <MaterialCommunityIcons name="help-circle-outline" size={32} color={isDark ? "#1E293B" : "#F1F5F9"} />
-                                    </View>
-                                    <Text className="text-2xl font-black text-slate-900 dark:text-white text-center leading-[38px]">
-                                        {currentCard?.front}
-                                    </Text>
-                                    <View className="absolute bottom-10 flex-row items-center">
-                                        <MaterialCommunityIcons name="gesture-tap" size={20} color={isDark ? "#475569" : "#94A3B8"} />
-                                        <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-2">Tap to Flip</Text>
-                                    </View>
-                                </Animated.View>
-
-                                {/* Back Side */}
-                                <Animated.View
-                                    style={[
-                                        backAnimatedStyle,
-                                        {
-                                            backfaceVisibility: 'hidden',
-                                            transform: [
-                                                { perspective: 1000 },
-                                                { rotateY: backInterpolate }
-                                            ],
-                                            shadowColor: "#000",
-                                            shadowOffset: { width: 0, height: 20 },
-                                            shadowOpacity: isFlipped ? 0.3 : 0,
-                                            shadowRadius: 40,
-                                        }
-                                    ]}
-                                    className="absolute inset-0 bg-blue-600 rounded-[48px] p-10 items-center justify-center elevation-10"
-                                >
-                                    <View className="absolute top-10 left-10">
-                                        <MaterialCommunityIcons name="check-decagram-outline" size={32} color="rgba(255,255,255,0.2)" />
-                                    </View>
-                                    <Text className="text-2xl font-black text-white text-center leading-[38px]">
-                                        {currentCard?.back}
-                                    </Text>
-                                    <View className="absolute bottom-10 flex-row items-center">
-                                        <MaterialCommunityIcons name="gesture-tap" size={20} color="rgba(255,255,255,0.6)" />
-                                        <Text className="text-[10px] font-bold text-white/60 uppercase tracking-widest ml-2">Tap to hide</Text>
-                                    </View>
-                                </Animated.View>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Footer Controls */}
-                        <View className="px-10 pb-12 pt-6">
-                            <View className="flex-row justify-between items-center bg-slate-50 dark:bg-slate-900/50 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800">
-                                <View className="flex-1">
-                                    <Text className="text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-1">Session Progress</Text>
-                                    <View className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                                        <Animated.View
-                                            className="h-full bg-blue-600 rounded-full"
-                                            style={{
-                                                width: progressAnim.interpolate({
-                                                    inputRange: [0, 1],
-                                                    outputRange: ['0%', '100%']
-                                                })
-                                            }}
-                                        />
-                                    </View>
+                                <MaterialCommunityIcons name="help-circle-outline" size={32} color={Colors.primary} style={{ position: 'absolute', top: Spacing.md, left: Spacing.md }} />
+                                <Text style={{ ...Typography.h2, textAlign: 'center' }}>{currentCard?.front}</Text>
+                                <View style={{ position: 'absolute', bottom: Spacing.md, flexDirection: 'row', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons name="gesture-tap" size={16} color={Colors.textMuted} />
+                                    <Text style={{ ...Typography.caption, marginLeft: 4 }}>Tap to reveal answer</Text>
                                 </View>
-                                <TouchableOpacity
-                                    onPress={nextCard}
-                                    activeOpacity={0.8}
-                                    className="ml-6 bg-blue-600 w-14 h-14 rounded-2xl items-center justify-center shadow-lg shadow-blue-500/30"
-                                >
-                                    <MaterialCommunityIcons
-                                        name={currentIndex < flashcards.length - 1 ? "arrow-right" : "check"}
-                                        size={28}
-                                        color="white"
-                                    />
-                                </TouchableOpacity>
-                            </View>
+                            </Animated.View>
+
+                            {/* Back Side */}
+                            <Animated.View
+                                style={[
+                                    backAnimatedStyle,
+                                    {
+                                        backfaceVisibility: 'hidden',
+                                        position: 'absolute',
+                                        inset: 0,
+                                        backgroundColor: Colors.primaryLight,
+                                        borderRadius: BorderRadius.sm,
+                                        borderWidth: 1,
+                                        borderColor: Colors.primary,
+                                        padding: Spacing.xl,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        ...Shadow.medium,
+                                        transform: [
+                                            { perspective: 1000 },
+                                            { rotateY: backInterpolate }
+                                        ]
+                                    }
+                                ]}
+                            >
+                                <MaterialCommunityIcons name="check-circle-outline" size={32} color={Colors.primary} style={{ position: 'absolute', top: Spacing.md, left: Spacing.md }} />
+                                <Text style={{ ...Typography.h2, textAlign: 'center', color: Colors.primaryDark }}>{currentCard?.back}</Text>
+                                <View style={{ position: 'absolute', bottom: Spacing.md, flexDirection: 'row', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons name="gesture-tap" size={16} color={Colors.primary} />
+                                    <Text style={{ ...Typography.caption, color: Colors.primary, marginLeft: 4 }}>Tap to hide answer</Text>
+                                </View>
+                            </Animated.View>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Footer Toggle */}
+                    <View style={{ padding: Spacing.lg, paddingBottom: insets.bottom + Spacing.lg }}>
+                        <TouchableOpacity
+                            onPress={nextCard}
+                            style={{
+                                backgroundColor: Colors.primary,
+                                height: 52,
+                                borderRadius: BorderRadius.xs,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                ...Shadow.medium
+                            }}
+                        >
+                            <Text style={{ color: Colors.white, fontWeight: '700', marginRight: Spacing.sm, textTransform: 'uppercase' }}>
+                                {currentIndex < flashcards.length - 1 ? 'Next Card' : 'Finish Session'}
+                            </Text>
+                            <MaterialCommunityIcons name="arrow-right" size={20} color={Colors.white} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
+            {/* Resume Session Modal */}
+            <Modal visible={isResumeModalVisible} transparent={true} animationType="fade">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.xl }}>
+                    <View style={{ backgroundColor: Colors.white, borderRadius: BorderRadius.sm, overflow: 'hidden' }}>
+                        <View style={{ padding: Spacing.md, backgroundColor: Colors.primary }}>
+                            <Text style={{ color: Colors.white, fontWeight: '700', textAlign: 'center' }}>Resume Session?</Text>
                         </View>
-                    </>
-                )}
-
-                {/* Premium Resume Study Modal */}
-                <Modal
-                    visible={isResumeModalVisible}
-                    transparent={true}
-                    animationType="fade"
-                >
-                    <View className="flex-1 bg-black/70 justify-center px-8">
-                        <View className="bg-white dark:bg-slate-900 w-full rounded-[48px] p-8 shadow-2xl border border-white/10 overflow-hidden">
-                            <View className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-[30px] items-center justify-center mb-8 self-center">
-                                <MaterialCommunityIcons name="cards-outline" size={40} color="#2563EB" />
-                            </View>
-
-                            <Text className="text-3xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tighter">Resume Prep?</Text>
-                            <Text className="text-slate-400 dark:text-slate-500 text-center font-bold text-[10px] uppercase tracking-[3px] mb-12">
-                                You left off at Card {savedIndex + 1} of {flashcards.length}
+                        <View style={{ padding: Spacing.lg, alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="history" size={48} color={Colors.primary} />
+                            <Text style={{ ...Typography.body, textAlign: 'center', marginTop: Spacing.md }}>
+                                You left off at card {savedIndex + 1} of {flashcards.length}. Would you like to continue?
                             </Text>
 
                             <TouchableOpacity
                                 onPress={() => handleResume(true)}
-                                activeOpacity={0.9}
-                                className="mb-4 shadow-xl shadow-blue-500/30"
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    width: '100%',
+                                    height: 44,
+                                    borderRadius: BorderRadius.xs,
+                                    marginTop: Spacing.lg,
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
                             >
-                                <LinearGradient
-                                    colors={['#2563EB', '#1D4ED8']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    className="w-full py-5 rounded-[24px] items-center justify-center flex-row"
-                                >
-                                    <MaterialCommunityIcons name="play-circle" size={22} color="white" />
-                                    <Text className="text-white font-black text-base uppercase tracking-[2px] ml-3">Continue Session</Text>
-                                </LinearGradient>
+                                <Text style={{ color: Colors.white, fontWeight: '700' }}>CONTINUE SESSION</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={() => handleResume(false)}
-                                activeOpacity={0.7}
-                                className="w-full py-5 rounded-[24px] items-center justify-center bg-slate-50 dark:bg-slate-800/50"
+                                style={{
+                                    marginTop: Spacing.md,
+                                    padding: Spacing.sm
+                                }}
                             >
-                                <Text className="text-slate-500 dark:text-slate-400 font-black text-xs uppercase tracking-widest">Start Fresh (Shuffle)</Text>
+                                <Text style={{ color: Colors.textMuted, fontWeight: '700', fontSize: 12 }}>START FRESH</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Modal>
-            </SafeAreaView>
+                </View>
+            </Modal>
         </View>
     );
 };
 
 export default FlashcardStudyScreen;
+

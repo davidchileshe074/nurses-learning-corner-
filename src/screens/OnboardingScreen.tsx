@@ -1,8 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, useWindowDimensions, StatusBar, Image, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, FlatList, TouchableOpacity, useWindowDimensions, Image } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const ONBOARDING_DATA = [
     {
@@ -33,8 +36,7 @@ const ONBOARDING_DATA = [
 
 const OnboardingScreen = ({ navigation }: any) => {
     const { width } = useWindowDimensions();
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
+    const insets = useSafeAreaInsets();
     const flatListRef = useRef<FlatList>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -63,13 +65,19 @@ const OnboardingScreen = ({ navigation }: any) => {
     }).current;
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, backgroundColor: Colors.white }}>
+            <StatusBar style="dark" />
 
             {/* Header / Skip */}
-            <View className="flex-row justify-end p-6">
-                <TouchableOpacity onPress={handleSkip}>
-                    <Text className="text-slate-500 dark:text-slate-400 font-bold text-base">Skip</Text>
+            <View style={{
+                paddingTop: insets.top + Spacing.sm,
+                paddingHorizontal: Spacing.xl,
+                flexDirection: 'row',
+                justifyContent: 'flex-end',
+                zIndex: 10
+            }}>
+                <TouchableOpacity onPress={handleSkip} style={{ padding: Spacing.xs }}>
+                    <Text style={{ ...Typography.label, color: Colors.primary, fontWeight: '900' }}>SKIP</Text>
                 </TouchableOpacity>
             </View>
 
@@ -78,16 +86,46 @@ const OnboardingScreen = ({ navigation }: any) => {
                 ref={flatListRef}
                 data={ONBOARDING_DATA}
                 renderItem={({ item }) => (
-                    <View style={{ width }} className="items-center px-6 justify-center">
-                        <View className="w-56 h-56 bg-blue-50 dark:bg-blue-900/20 rounded-full items-center justify-center mb-8">
-                            <MaterialCommunityIcons name={item.icon as any} size={80} color={isDark ? "#60A5FA" : "#2563EB"} />
-                        </View>
-                        <Text className="text-3xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tight">
+                    <View style={{ width, paddingHorizontal: Spacing.xl, justifyContent: 'center', alignItems: 'center' }}>
+                        <Animated.View
+                            entering={FadeInDown.delay(200).springify()}
+                            style={{
+                                width: 220,
+                                height: 220,
+                                backgroundColor: Colors.primaryLight,
+                                borderRadius: BorderRadius.md,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: Spacing.xl,
+                                borderWidth: 2,
+                                borderColor: Colors.primary
+                            }}
+                        >
+                            <MaterialCommunityIcons name={item.icon as any} size={100} color={Colors.primary} />
+                        </Animated.View>
+                        <Animated.Text
+                            entering={FadeInDown.delay(300).springify()}
+                            style={{
+                                ...Typography.h1,
+                                color: Colors.primary,
+                                textAlign: 'center',
+                                marginBottom: Spacing.sm
+                            }}
+                        >
                             {item.title}
-                        </Text>
-                        <Text className="text-slate-500 dark:text-slate-400 text-base text-center leading-relaxed font-medium px-4">
+                        </Animated.Text>
+                        <Animated.Text
+                            entering={FadeInDown.delay(400).springify()}
+                            style={{
+                                ...Typography.body,
+                                color: Colors.textSecondary,
+                                textAlign: 'center',
+                                lineHeight: 24,
+                                paddingHorizontal: Spacing.md
+                            }}
+                        >
                             {item.description}
-                        </Text>
+                        </Animated.Text>
                     </View>
                 )}
                 horizontal
@@ -100,38 +138,52 @@ const OnboardingScreen = ({ navigation }: any) => {
             />
 
             {/* Footer */}
-            <View className="px-8 pb-12 pt-4 items-center">
+            <View style={{
+                paddingHorizontal: Spacing.xl,
+                paddingBottom: insets.bottom + Spacing.xl,
+                alignItems: 'center'
+            }}>
                 {/* Dots */}
-                <View className="flex-row justify-center mb-8 gap-2">
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: Spacing.xs, marginBottom: 40 }}>
                     {ONBOARDING_DATA.map((_, index) => (
                         <View
                             key={index}
-                            className={`h-2 rounded-full transition-all ${currentIndex === index ? 'w-6 bg-blue-600 dark:bg-blue-500' : 'w-2 bg-slate-200 dark:bg-slate-800'}`}
+                            style={{
+                                height: 4,
+                                width: currentIndex === index ? 24 : 8,
+                                borderRadius: 2,
+                                backgroundColor: currentIndex === index ? Colors.primary : Colors.border,
+                            }}
                         />
                     ))}
                 </View>
 
                 {/* Button */}
-                {currentIndex === ONBOARDING_DATA.length - 1 ? (
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        className="bg-blue-600 dark:bg-blue-600 h-14 w-full rounded-2xl items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.98]"
-                    >
-                        <Text className="text-white font-bold text-base uppercase tracking-widest">
-                            Get Started
-                        </Text>
-                    </TouchableOpacity>
-                ) : (
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        className="bg-blue-600 dark:bg-blue-600 w-16 h-16 rounded-full items-center justify-center shadow-lg shadow-blue-200 dark:shadow-none active:scale-[0.80]"
-                    >
-                        <MaterialCommunityIcons name="arrow-right" size={28} color="white" />
-                    </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                    onPress={handleNext}
+                    style={{
+                        backgroundColor: Colors.primary,
+                        height: 56,
+                        width: '100%',
+                        borderRadius: BorderRadius.sm,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        ...Shadow.small
+                    }}
+                >
+                    <Text style={{
+                        color: Colors.white,
+                        fontWeight: '900',
+                        fontSize: 14,
+                        letterSpacing: 1.2
+                    }}>
+                        {currentIndex === ONBOARDING_DATA.length - 1 ? 'GET STARTED' : 'CONTINUE'}
+                    </Text>
+                </TouchableOpacity>
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
 export default OnboardingScreen;
+

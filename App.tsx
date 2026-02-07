@@ -5,8 +5,15 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import * as SplashScreen from 'expo-splash-screen';
 import Toast from 'react-native-toast-message';
-import { usePreventScreenCapture } from 'expo-screen-capture';
 import { useColorScheme } from 'react-native';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 
 import { AuthProvider } from './src/context/AuthContext';
 import Navigation, { linking } from './src/navigation';
@@ -19,9 +26,15 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const [appIsReady, setAppIsReady] = React.useState(false);
-
-  usePreventScreenCapture();
   const scheme = useColorScheme();
+
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
 
   React.useEffect(() => {
     let mounted = true;
@@ -29,7 +42,7 @@ export default function App() {
     async function prepare() {
       try {
         await initDownloads();
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Fonts load via the hook, so we just wait for other async tasks here
       } catch (e) {
         console.warn(e);
       } finally {
@@ -42,12 +55,12 @@ export default function App() {
   }, []);
 
   const onLayoutRootView = React.useCallback(async () => {
-    if (appIsReady) {
+    if (appIsReady && fontsLoaded) {
       await SplashScreen.hideAsync();
     }
-  }, [appIsReady]);
+  }, [appIsReady, fontsLoaded]);
 
-  if (!appIsReady) return null;
+  if (!appIsReady || !fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>

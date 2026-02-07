@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendEmailOTP, verifyEmailOTP, getCurrentUser } from '../services/auth';
 import { databases, APPWRITE_CONFIG } from '../services/appwriteClient';
 import { useAuth } from '../context/AuthContext';
 import { getDeviceId } from '../services/device';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
-const VerifyOTPScreen = ({ route, navigation }: any) => {
+const VerifyOTPScreen = ({ route, navigation }: any) => { // TODO: Add proper ScreenProps type
+    const insets = useSafeAreaInsets();
     const { email: paramEmail } = route.params || {};
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
@@ -77,67 +81,116 @@ const VerifyOTPScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50" edges={['top', 'bottom']}>
-            <StatusBar barStyle="dark-content" />
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1 p-6">
-                <TouchableOpacity onPress={() => navigation.goBack()} className="mb-8">
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
-                </TouchableOpacity>
-
-                <View className="mb-10">
-                    <Text className="text-3xl font-bold text-slate-900 mb-2">Verify Email</Text>
-                    <Text className="text-slate-600 text-lg">We've sent a 6-digit code to</Text>
-                    <Text className="text-blue-600 font-bold text-lg">{email}</Text>
-                </View>
-
-                <View className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                    <View className="mb-8 items-center">
-                        <View className="w-16 h-16 bg-blue-50 rounded-full items-center justify-center mb-4">
-                            <MaterialCommunityIcons name="email-check-outline" size={32} color="#2563EB" />
-                        </View>
-                    </View>
-
-                    <TextInput
-                        className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 text-4xl text-center font-bold text-slate-900 mb-2"
-                        placeholder="000000"
-                        placeholderTextColor="#94A3B8"
-                        value={code}
-                        onChangeText={setCode}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                    />
-                    <Text className="text-slate-400 text-center text-sm mb-8">Enter the code from your email</Text>
-
+        <View style={{ flex: 1, backgroundColor: Colors.white }}>
+            <StatusBar style="dark" />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
+            >
+                <View style={{ paddingHorizontal: Spacing.xl, paddingTop: insets.top + Spacing.md }}>
                     <TouchableOpacity
-                        onPress={handleVerify}
-                        disabled={loading}
-                        className={`bg-blue-600 h-14 rounded-lg items-center justify-center shadow-md ${loading ? 'opacity-70' : ''}`}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white font-bold text-lg uppercase tracking-wider">Verify Account</Text>
-                        )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => {
-                            setLoading(true);
-                            sendEmailOTP(email!, user?.$id || 'unique_temp_id')
-                                .then(() => Toast.show({
-                                    type: 'success',
-                                    text1: 'Sent',
-                                    text2: 'A new code has been sent.'
-                                }))
-                                .finally(() => setLoading(false));
+                        onPress={() => navigation.goBack()}
+                        style={{
+                            width: 40,
+                            height: 40,
+                            marginLeft: -Spacing.sm,
+                            marginBottom: Spacing.md,
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         }}
-                        className="mt-6 items-center"
                     >
-                        <Text className="text-slate-600">Didn't receive a code? <Text className="text-blue-600 font-bold">Resend</Text></Text>
+                        <MaterialCommunityIcons name="arrow-left" size={28} color={Colors.text} />
                     </TouchableOpacity>
+
+                    <Animated.View entering={FadeInDown.delay(100).springify()}>
+                        <View style={{ marginBottom: Spacing.xxl }}>
+                            <Text style={{ ...Typography.h1, color: Colors.primary, marginBottom: 4 }}>Verify Email</Text>
+                            <Text style={{ ...Typography.body, color: Colors.textSecondary }}>We've sent a 6-digit code to</Text>
+                            <Text style={{ ...Typography.body, color: Colors.primary, fontWeight: '700' }}>{email}</Text>
+                        </View>
+
+                        <View style={{
+                            backgroundColor: Colors.white,
+                            padding: Spacing.lg,
+                            borderRadius: BorderRadius.md,
+                            borderWidth: 1,
+                            borderColor: Colors.borderLight,
+                            ...Shadow.medium,
+                            alignItems: 'center'
+                        }}>
+                            <View style={{
+                                width: 64,
+                                height: 64,
+                                backgroundColor: Colors.primaryLight,
+                                borderRadius: BorderRadius.sm,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: Spacing.lg,
+                                borderWidth: 1,
+                                borderColor: Colors.primary
+                            }}>
+                                <MaterialCommunityIcons name="email-check-outline" size={32} color={Colors.primary} />
+                            </View>
+
+                            <TextInput
+                                style={{
+                                    width: '100%',
+                                    backgroundColor: Colors.background,
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    padding: Spacing.md,
+                                    fontSize: 32,
+                                    textAlign: 'center',
+                                    fontWeight: '700',
+                                    color: Colors.text,
+                                    marginBottom: Spacing.xs
+                                }}
+                                placeholder="000000"
+                                placeholderTextColor={Colors.textMuted}
+                                value={code}
+                                onChangeText={setCode}
+                                keyboardType="number-pad"
+                                maxLength={6}
+                            />
+                            <Text style={{ ...Typography.caption, color: Colors.textMuted, marginBottom: Spacing.xl }}>Enter the 6-digit code from your inbox</Text>
+
+                            <TouchableOpacity
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    height: 48,
+                                    width: '100%',
+                                    borderRadius: BorderRadius.sm,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: loading ? 0.7 : 1
+                                }}
+                                onPress={handleVerify}
+                                disabled={loading}
+                            >
+                                {loading ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '900' }}>VERIFY ACCOUNT</Text>}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setLoading(true);
+                                    sendEmailOTP(email!, user?.$id || 'unique_temp_id')
+                                        .then(() => Toast.show({
+                                            type: 'success',
+                                            text1: 'Sent',
+                                            text2: 'A new code has been sent.'
+                                        }))
+                                        .finally(() => setLoading(false));
+                                }}
+                                style={{ marginTop: Spacing.lg }}
+                            >
+                                <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>Didn't receive a code? <Text style={{ color: Colors.primary, fontWeight: '900' }}>RESEND</Text></Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Animated.View>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 };
 

@@ -35,7 +35,7 @@ module.exports = async ({ req, res, log, error }) => {
         }
 
         const accessCodeDoc = codes.documents[0];
-        const days = accessCodeDoc.durationDays;
+        const days = accessCodeDoc.durationDays || 30; // Default to 30 for backward compatibility
 
         // 3. Check for existing subscription
         const subs = await databases.listDocuments(databaseId, 'subscriptions', [

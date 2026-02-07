@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform, ScrollView, Modal, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal, Dimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signIn, getCurrentUser, sendPasswordResetEmail } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
+import LoadingView from '../components/LoadingView';
+
+const { height } = Dimensions.get('window');
 
 const LoginScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -17,8 +24,6 @@ const LoginScreen = ({ navigation }: any) => {
     const [resetEmail, setResetEmail] = useState('');
     const [resetLoading, setResetLoading] = useState(false);
 
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
     const { setUser } = useAuth();
 
     const handleLogin = async () => {
@@ -36,7 +41,7 @@ const LoginScreen = ({ navigation }: any) => {
             await signIn(email, password);
             const profile = await getCurrentUser();
             if (profile) {
-                setUser(profile as any);
+                setUser(profile);
             }
         } catch (error: any) {
             Toast.show({
@@ -65,57 +70,81 @@ const LoginScreen = ({ navigation }: any) => {
             Toast.show({
                 type: 'success',
                 text1: 'Check Your Email',
-                text2: 'We have sent password reset instructions.',
-                onPress: () => setForgotPasswordModalVisible(false)
+                text2: 'Password reset instructions sent.'
             });
+            setForgotPasswordModalVisible(false);
         } catch (error: any) {
             Toast.show({
                 type: 'error',
                 text1: 'Error',
-                text2: 'Failed to send reset email. Please try again.'
+                text2: 'Failed to send reset email.'
             });
         } finally {
             setResetLoading(false);
         }
     };
 
-    const openForgotPassword = () => {
-        setResetEmail(email); // Pre-fill with current email input
-        setForgotPasswordModalVisible(true);
-    };
-
     return (
-        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top', 'bottom']}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, backgroundColor: Colors.white }}>
+            <StatusBar style="dark" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                className="flex-1"
+                style={{ flex: 1 }}
             >
                 <ScrollView
                     contentContainerStyle={{ flexGrow: 1 }}
                     showsVerticalScrollIndicator={false}
-                    className="px-6"
+                    style={{ paddingHorizontal: Spacing.xl }}
                 >
-                    <View className="flex-1 justify-center py-10">
+                    <Animated.View
+                        entering={FadeInDown.delay(100).springify()}
+                        style={{ flex: 1, justifyContent: 'center', paddingVertical: Spacing.xxl }}
+                    >
                         {/* Brand Header */}
-                        <View className="items-center mb-12">
-                            <View className="w-20 h-20 bg-white dark:bg-slate-900 rounded-3xl items-center justify-center shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
-                                <MaterialCommunityIcons name="heart-pulse" size={48} color={isDark ? "#60A5FA" : "#2563EB"} />
+                        <View style={{ alignItems: 'center', marginBottom: Spacing.xxxl }}>
+                            <View style={{
+                                width: 80,
+                                height: 80,
+                                backgroundColor: Colors.primaryLight,
+                                borderRadius: BorderRadius.sm,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderWidth: 2,
+                                borderColor: Colors.primary,
+                                marginBottom: Spacing.md
+                            }}>
+                                <MaterialCommunityIcons name="heart-pulse" size={48} color={Colors.primary} />
                             </View>
-                            <Text className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Nurse Learning</Text>
-                            <Text className="text-slate-600 dark:text-slate-400 text-lg mt-2 text-center font-medium">Your companion in excellence</Text>
+                            <Text style={{ ...Typography.h1, color: Colors.primary }}>Nurse Learning</Text>
+                            <Text style={{ ...Typography.body, color: Colors.textSecondary, textAlign: 'center' }}>Empowering nurses with digital tools</Text>
                         </View>
 
                         {/* Form Section */}
-                        <View className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-                            <View className="mb-6">
-                                <Text className="text-slate-900 dark:text-slate-300 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Email Address</Text>
-                                <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 h-14">
-                                    <MaterialCommunityIcons name="email-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                        <View style={{
+                            backgroundColor: Colors.white,
+                            padding: Spacing.lg,
+                            borderRadius: BorderRadius.md,
+                            borderWidth: 1,
+                            borderColor: Colors.borderLight,
+                            ...Shadow.medium
+                        }}>
+                            <View style={{ marginBottom: Spacing.md }}>
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>EMAIL ADDRESS</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    backgroundColor: Colors.background
+                                }}>
+                                    <MaterialCommunityIcons name="email-outline" size={20} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text, fontWeight: '500' }}
                                         placeholder="nurse@example.com"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                                        placeholderTextColor={Colors.textMuted}
                                         value={email}
                                         onChangeText={setEmail}
                                         keyboardType="email-address"
@@ -124,14 +153,23 @@ const LoginScreen = ({ navigation }: any) => {
                                 </View>
                             </View>
 
-                            <View className="mb-4">
-                                <Text className="text-slate-900 dark:text-slate-300 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Password</Text>
-                                <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 h-14">
-                                    <MaterialCommunityIcons name="lock-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                            <View style={{ marginBottom: Spacing.sm }}>
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    backgroundColor: Colors.background
+                                }}>
+                                    <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
-                                        placeholder="••••••••"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text, fontWeight: '500' }}
+                                        placeholder="Min 8 characters"
+                                        placeholderTextColor={Colors.textMuted}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry={!showPassword}
@@ -140,116 +178,109 @@ const LoginScreen = ({ navigation }: any) => {
                                         <MaterialCommunityIcons
                                             name={showPassword ? "eye-off-outline" : "eye-outline"}
                                             size={20}
-                                            color={isDark ? "#64748B" : "#94A3B8"}
+                                            color={Colors.textMuted}
                                         />
                                     </TouchableOpacity>
                                 </View>
                             </View>
 
-                            <TouchableOpacity className="self-end mb-8" onPress={openForgotPassword}>
-                                <Text className="text-blue-600 dark:text-blue-400 font-bold text-sm">Forgot Password?</Text>
+                            <TouchableOpacity
+                                style={{ alignSelf: 'flex-end', marginBottom: Spacing.xl }}
+                                onPress={() => setForgotPasswordModalVisible(true)}
+                            >
+                                <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 13 }}>FORGOT PASSWORD?</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                className={`bg-blue-600 dark:bg-blue-600 h-14 rounded-xl items-center justify-center shadow-md ${loading ? 'opacity-70' : ''}`}
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    height: 48,
+                                    borderRadius: BorderRadius.sm,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: loading ? 0.7 : 1
+                                }}
                                 onPress={handleLogin}
                                 disabled={loading}
-                                activeOpacity={0.8}
                             >
-                                {loading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text className="text-white font-bold text-lg">Sign In</Text>
-                                )}
+                                {loading ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '900' }}>SIGN IN</Text>}
                             </TouchableOpacity>
                         </View>
 
                         {/* Footer */}
-                        <View className="flex-row justify-center mt-10">
-                            <Text className="text-slate-600 dark:text-slate-400 text-base">Don't have an account? </Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.xl, alignSelf: 'center' }}>
+                            <Text style={{ ...Typography.body, color: Colors.textSecondary }}>Don't have an account? </Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                                <Text className="text-blue-600 dark:text-blue-400 font-extrabold text-base">Create One</Text>
+                                <Text style={{ color: Colors.primary, fontWeight: '900' }}>CREATE ONE</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
             {/* Forgot Password Modal */}
-            {/* Forgot Password Overlay */}
-            {forgotPasswordModalVisible && (
-                <View className="absolute inset-0 z-50">
-                    {/* Backdrop */}
-                    <TouchableOpacity
-                        className="absolute inset-0 bg-black/60"
-                        activeOpacity={1}
-                        onPress={() => setForgotPasswordModalVisible(false)}
-                    />
+            <Modal visible={forgotPasswordModalVisible} transparent={true} animationType="fade">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg }}>
+                    <View style={{
+                        backgroundColor: Colors.white,
+                        borderRadius: BorderRadius.sm,
+                        overflow: 'hidden',
+                        ...Shadow.medium
+                    }}>
+                        <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ color: Colors.white, fontWeight: '700' }}>Recover Account</Text>
+                            <TouchableOpacity onPress={() => setForgotPasswordModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
+                            </TouchableOpacity>
+                        </View>
 
-                    <View className="flex-1 justify-center px-6">
-                        <View className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
-                            <ScrollView
-                                bounces={false}
-                                showsVerticalScrollIndicator={false}
-                                keyboardShouldPersistTaps="handled"
+                        <View style={{ padding: Spacing.lg }}>
+                            <Text style={{ ...Typography.body, color: Colors.textSecondary, marginBottom: Spacing.lg }}>
+                                Enter your verified email address and we'll send you instructions to reset your password.
+                            </Text>
+
+                            <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>EMAIL ADDRESS</Text>
+                            <View style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                borderWidth: 1,
+                                borderColor: Colors.border,
+                                borderRadius: BorderRadius.xs,
+                                paddingHorizontal: Spacing.md,
+                                height: 48,
+                                marginBottom: Spacing.xl
+                            }}>
+                                <MaterialCommunityIcons name="email-outline" size={20} color={Colors.textMuted} />
+                                <TextInput
+                                    style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text }}
+                                    placeholder="nurse@example.com"
+                                    value={resetEmail}
+                                    onChangeText={setResetEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+
+                            <TouchableOpacity
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    height: 48,
+                                    borderRadius: BorderRadius.xs,
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                onPress={handleForgotPassword}
+                                disabled={resetLoading}
                             >
-                                <View className="p-8">
-                                    <View className="items-center mb-8">
-                                        <View className="w-16 h-1 bg-slate-100 dark:bg-slate-800 rounded-full mb-8" />
-                                        <View className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-[32px] items-center justify-center mb-6">
-                                            <MaterialCommunityIcons name="lock-reset" size={38} color="#2563EB" />
-                                        </View>
-                                        <Text className="text-3xl font-black text-slate-900 dark:text-white text-center">Reset Access</Text>
-                                        <Text className="text-slate-500 dark:text-slate-400 text-center mt-3 font-medium px-4">
-                                            Enter your email to receive recovery instructions.
-                                        </Text>
-                                    </View>
-
-                                    <View className="mb-10">
-                                        <Text className="text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-3 ml-1">Verified Email</Text>
-                                        <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 h-16">
-                                            <MaterialCommunityIcons name="email-outline" size={22} color={isDark ? "#475569" : "#94A3B8"} />
-                                            <TextInput
-                                                className="flex-1 ml-4 text-slate-900 dark:text-white font-bold"
-                                                placeholder="nurse@example.com"
-                                                placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                                value={resetEmail}
-                                                onChangeText={setResetEmail}
-                                                keyboardType="email-address"
-                                                autoCapitalize="none"
-                                                autoFocus={true}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        className={`bg-blue-600 h-16 rounded-2xl items-center justify-center shadow-xl shadow-blue-500/20 ${resetLoading ? 'opacity-70' : ''}`}
-                                        onPress={handleForgotPassword}
-                                        disabled={resetLoading}
-                                    >
-                                        {resetLoading ? (
-                                            <ActivityIndicator color="white" />
-                                        ) : (
-                                            <Text className="text-white font-black text-base uppercase tracking-widest">Send Recovery Link</Text>
-                                        )}
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        className="mt-6 items-center py-4"
-                                        onPress={() => setForgotPasswordModalVisible(false)}
-                                    >
-                                        <Text className="text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest text-[10px]">Cancel Recovery</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </ScrollView>
+                                {resetLoading ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '900' }}>SEND RESET LINK</Text>}
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </View>
-            )}
-        </SafeAreaView>
+            </Modal>
+        </View>
     );
 };
 
 export default LoginScreen;
-
 

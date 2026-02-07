@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform, ScrollView, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { account } from '../services/appwriteClient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const ResetPasswordScreen = ({ route, navigation }: any) => {
+    const insets = useSafeAreaInsets();
     const { userId, secret } = route.params || {};
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
 
     useEffect(() => {
         if (!userId || !secret) {
@@ -59,8 +60,8 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
             await account.updateRecovery(userId, secret, password);
             Toast.show({
                 type: 'success',
-                text1: 'Password Reset Successful',
-                text2: 'You can now log in with your new password.'
+                text1: 'Success',
+                text2: 'Password reset successful. Please log in.'
             });
             navigation.navigate('Login');
         } catch (error: any) {
@@ -75,35 +76,61 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top', 'bottom']}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, backgroundColor: Colors.white }}>
+            <StatusBar style="dark" />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                className="flex-1"
+                style={{ flex: 1 }}
             >
                 <ScrollView
                     contentContainerStyle={{ flexGrow: 1 }}
                     showsVerticalScrollIndicator={false}
-                    className="px-6"
+                    style={{ paddingHorizontal: Spacing.xl }}
                 >
-                    <View className="flex-1 justify-center py-10">
-                        <View className="items-center mb-10">
-                            <View className="w-20 h-20 bg-white dark:bg-slate-900 rounded-3xl items-center justify-center shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
-                                <MaterialCommunityIcons name="lock-reset" size={48} color={isDark ? "#60A5FA" : "#2563EB"} />
+                    <Animated.View entering={FadeInDown.delay(100).springify()} style={{ flex: 1, justifyContent: 'center', paddingVertical: 40 }}>
+                        <View style={{ alignItems: 'center', marginBottom: 48 }}>
+                            <View style={{
+                                width: 80,
+                                height: 80,
+                                backgroundColor: Colors.primaryLight,
+                                borderRadius: BorderRadius.xs,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderWidth: 2,
+                                borderColor: Colors.primary,
+                                marginBottom: Spacing.md
+                            }}>
+                                <MaterialCommunityIcons name="lock-reset" size={48} color={Colors.primary} />
                             </View>
-                            <Text className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">New Password</Text>
-                            <Text className="text-slate-600 dark:text-slate-400 text-lg mt-2 text-center font-medium">Create a secure password for your account</Text>
+                            <Text style={{ ...Typography.h1, color: Colors.primary }}>New Password</Text>
+                            <Text style={{ ...Typography.body, color: Colors.textSecondary, textAlign: 'center', marginTop: 4 }}>Create a secure password for your account</Text>
                         </View>
 
-                        <View className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-                            <View className="mb-6">
-                                <Text className="text-slate-900 dark:text-slate-300 text-sm font-bold uppercase tracking-wider mb-2 ml-1">New Password</Text>
-                                <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 h-14">
-                                    <MaterialCommunityIcons name="lock-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                        <View style={{
+                            backgroundColor: Colors.white,
+                            padding: Spacing.lg,
+                            borderRadius: BorderRadius.sm,
+                            borderWidth: 1,
+                            borderColor: Colors.borderLight,
+                            ...Shadow.medium
+                        }}>
+                            <View style={{ marginBottom: Spacing.md }}>
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>NEW PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.xs,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    backgroundColor: Colors.background
+                                }}>
+                                    <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
-                                        placeholder="••••••••"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text, fontWeight: '500' }}
+                                        placeholder="Min 8 characters"
+                                        placeholderTextColor={Colors.textMuted}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry={!showPassword}
@@ -112,20 +139,29 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
                                         <MaterialCommunityIcons
                                             name={showPassword ? "eye-off-outline" : "eye-outline"}
                                             size={20}
-                                            color={isDark ? "#64748B" : "#94A3B8"}
+                                            color={Colors.textMuted}
                                         />
                                     </TouchableOpacity>
                                 </View>
                             </View>
 
-                            <View className="mb-8">
-                                <Text className="text-slate-900 dark:text-slate-300 text-sm font-bold uppercase tracking-wider mb-2 ml-1">Confirm Password</Text>
-                                <View className="flex-row items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 h-14">
-                                    <MaterialCommunityIcons name="lock-check-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                            <View style={{ marginBottom: Spacing.xl }}>
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>CONFIRM PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.xs,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    backgroundColor: Colors.background
+                                }}>
+                                    <MaterialCommunityIcons name="lock-check-outline" size={20} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
-                                        placeholder="••••••••"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text, fontWeight: '500' }}
+                                        placeholder="Repeat password"
+                                        placeholderTextColor={Colors.textMuted}
                                         value={confirmPassword}
                                         onChangeText={setConfirmPassword}
                                         secureTextEntry={!showPassword}
@@ -134,29 +170,34 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
                             </View>
 
                             <TouchableOpacity
-                                className={`bg-blue-600 dark:bg-blue-600 h-14 rounded-xl items-center justify-center shadow-md ${loading ? 'opacity-70' : ''}`}
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    height: 48,
+                                    borderRadius: BorderRadius.xs,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: loading ? 0.7 : 1
+                                }}
                                 onPress={handleResetPassword}
                                 disabled={loading}
-                                activeOpacity={0.8}
                             >
-                                {loading ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text className="text-white font-bold text-lg">Reset Password</Text>
-                                )}
+                                {loading ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '900' }}>RESET PASSWORD</Text>}
                             </TouchableOpacity>
                         </View>
+
                         <TouchableOpacity
-                            className="mt-8 items-center"
+                            style={{ alignSelf: 'center', marginTop: 32 }}
                             onPress={() => navigation.navigate('Login')}
                         >
-                            <Text className="text-slate-500 dark:text-slate-400 font-bold">Back to Login</Text>
+                            <Text style={{ color: Colors.primary, fontWeight: '900' }}>BACK TO LOGIN</Text>
                         </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 };
 
 export default ResetPasswordScreen;
+
+

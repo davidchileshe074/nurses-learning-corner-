@@ -4,30 +4,30 @@ import {
     Text,
     TouchableOpacity,
     TextInput,
-    Alert,
     ActivityIndicator,
-    StatusBar,
     ScrollView,
     Image,
-    Dimensions,
-    useColorScheme
+    Dimensions
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getSubscriptionStatus, redeemAccessCode } from '../services/subscription';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
 import { getNotifications } from '../services/notifications';
-import { AppNotification } from '../types';
 import Toast from 'react-native-toast-message';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const { width } = Dimensions.get('window');
 
-const AccountScreen = ({ navigation }: any) => {
+const AccountScreen = ({ navigation }: NativeStackScreenProps<any>) => {
     const { user, signOut } = useAuth();
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
-    const [subscription, setSubscription] = useState<any>(null);
+    const insets = useSafeAreaInsets();
+
+    const [subscription, setSubscription] = useState<any>(null); // TODO: Define Subscription type
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [fetchingSub, setFetchingSub] = useState(true);
@@ -71,15 +71,14 @@ const AccountScreen = ({ navigation }: any) => {
             if (result.success) {
                 Toast.show({
                     type: 'success',
-                    text1: 'Success',
-                    text2: `Subscription extended by ${result.durationDays} days!`
+                    text1: 'Access Granted'
                 });
                 setCode('');
                 fetchSub();
             } else {
                 Toast.show({
                     type: 'error',
-                    text1: 'Error',
+                    text1: 'Redemption Failed',
                     text2: result.message || 'Invalid or used code'
                 });
             }
@@ -97,189 +96,223 @@ const AccountScreen = ({ navigation }: any) => {
     const isSubscribed = subscription?.status === 'ACTIVE' && new Date(subscription.endDate) > new Date();
 
     return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top']}>
-                <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                    {/* Minimalist Top Header */}
-                    <View className="px-6 py-4 flex-row justify-between items-center">
-                        <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">My Account</Text>
-                        <TouchableOpacity
-                            onPress={signOut}
-                            className="bg-slate-50 dark:bg-slate-900 px-4 py-2 rounded-full border border-slate-100 dark:border-slate-800"
-                        >
-                            <Text className="text-red-500 font-bold text-xs uppercase tracking-widest">Sign Out</Text>
-                        </TouchableOpacity>
-                    </View>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-                    {/* Profile Section */}
-                    <View className="items-center mt-4 pb-6 border-b border-slate-50 dark:border-slate-900">
-                        <View
-                            className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-[36px] items-center justify-center border-4 border-white dark:border-slate-900 shadow-sm relative overflow-hidden mb-4"
-                        >
-                            {user?.avatarUrl ? (
-                                <Image source={{ uri: user.avatarUrl }} className="w-full h-full" resizeMode="cover" />
-                            ) : (
-                                <View className="items-center justify-center">
-                                    <Text className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">
-                                        {user?.fullName
-                                            ? user.fullName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
-                                            : 'N'}
-                                    </Text>
-                                </View>
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>My Account</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={signOut}
+                        style={{
+                            paddingHorizontal: Spacing.md,
+                            paddingVertical: 6,
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            borderRadius: BorderRadius.sm
+                        }}
+                    >
+                        <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 12 }}>SIGN OUT</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                {/* Profile Header Block */}
+                <View style={{ backgroundColor: Colors.white, padding: Spacing.xl, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                    <View style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: BorderRadius.sm,
+                        backgroundColor: Colors.primaryLight,
+                        borderWidth: 2,
+                        borderColor: Colors.primary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: Spacing.md,
+                        overflow: 'hidden'
+                    }}>
+                        {user?.avatarUrl ? (
+                            <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%' }} />
+                        ) : (
+                            <Text style={{ fontSize: 32, fontWeight: '900', color: Colors.primary }}>
+                                {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'N'}
+                            </Text>
+                        )}
+                    </View>
+                    <Text style={Typography.h1}>{user?.fullName}</Text>
+                    <Text style={{ ...Typography.body, color: Colors.textSecondary }}>{user?.email}</Text>
+
+                    <View style={{ flexDirection: 'row', marginTop: Spacing.md, gap: Spacing.sm }}>
+                        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, backgroundColor: Colors.primaryLight, borderRadius: BorderRadius.full }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.primary }}>{user?.program ? formatProgram(user.program) : 'Loading...'}</Text>
+                        </View>
+                        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: 4, backgroundColor: Colors.borderLight, borderRadius: BorderRadius.full }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted }}>{user?.yearOfStudy ? `Year ${formatYear(user.yearOfStudy)}` : ''}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={{ padding: Spacing.md }}>
+                    {/* Membership Section */}
+                    <Text style={{ ...Typography.caption, color: Colors.textMuted, marginBottom: Spacing.sm, fontWeight: '700' }}>MEMBERSHIP STATUS</Text>
+                    <View style={{
+                        backgroundColor: Colors.white,
+                        borderWidth: 1,
+                        borderColor: Colors.border,
+                        borderRadius: BorderRadius.md,
+                        padding: Spacing.md,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginBottom: Spacing.lg,
+                        ...Shadow.small
+                    }}>
+                        <View style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: BorderRadius.sm,
+                            backgroundColor: isSubscribed ? Colors.primaryLight : Colors.borderLight,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: Spacing.md
+                        }}>
+                            <MaterialCommunityIcons
+                                name={isSubscribed ? "crown" : "account-lock-outline"}
+                                size={28}
+                                color={isSubscribed ? Colors.primary : Colors.textMuted}
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ ...Typography.body, fontWeight: '700' }}>
+                                {fetchingSub ? 'Updating...' : isSubscribed ? 'Premium Access' : 'Standard Access'}
+                            </Text>
+                            {isSubscribed && (
+                                <Text style={{ ...Typography.caption, color: Colors.primary }}>
+                                    Active until {new Date(subscription.endDate).toLocaleDateString()}
+                                </Text>
                             )}
                         </View>
-
-                        <Text className="text-2xl font-black text-slate-900 dark:text-white mb-1">{user?.fullName}</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 font-medium mb-4">{user?.email}</Text>
-
-                        <View className="flex-row items-center gap-2">
-                            <View className="bg-brand-surface dark:bg-brand-dark/30 px-3 py-1 rounded-full border border-brand-light/10">
-                                <Text className="text-brand dark:text-brand-light font-black text-[10px] uppercase tracking-widest">
-                                    {user?.program ? formatProgram(user.program) : 'Loading...'}
-                                </Text>
-                            </View>
-                            <View className="bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                                <Text className="text-slate-500 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest">
-                                    {user?.yearOfStudy ? `Year ${formatYear(user.yearOfStudy)}` : ''}
-                                </Text>
-                            </View>
-                        </View>
                     </View>
 
-                    {/* Content Section */}
-                    <View className="px-6 py-6 bg-slate-50/50 dark:bg-slate-900/50 flex-1">
-                        {/* Premium Status Banner */}
-                        <View className={`p-8 rounded-[32px] mb-6 flex-row items-center border ${isSubscribed ? 'bg-white dark:bg-slate-900 border-blue-100 dark:border-blue-900/30' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'} shadow-sm`}>
-                            <View className={`w-16 h-16 rounded-2xl items-center justify-center mr-5 ${isSubscribed ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-slate-50 dark:bg-slate-800'}`}>
-                                <MaterialCommunityIcons
-                                    name={isSubscribed ? "crown" : "account-lock-outline"}
-                                    size={34}
-                                    color={isSubscribed ? (isDark ? "#60A5FA" : "#2563EB") : (isDark ? "#475569" : "#94A3B8")}
-                                />
-                            </View>
-                            <View className="flex-1">
-                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Membership</Text>
-                                <Text className="text-slate-900 dark:text-white font-black text-xl">
-                                    {fetchingSub ? 'Syncing...' : isSubscribed ? 'Premium Access ✨' : 'Standard Member'}
-                                </Text>
-                                {isSubscribed && (
-                                    <Text className="text-blue-600 dark:text-blue-400 font-bold text-[11px] mt-1">
-                                        Active until: {new Date(subscription.endDate).toLocaleDateString()}
-                                    </Text>
+                    {/* Redeem Section */}
+                    {!isSubscribed && !fetchingSub && (
+                        <View style={{
+                            backgroundColor: Colors.primaryDark,
+                            borderRadius: BorderRadius.md,
+                            padding: Spacing.lg,
+                            marginBottom: Spacing.lg,
+                            ...Shadow.medium
+                        }}>
+                            <Text style={{ ...Typography.h2, color: Colors.white, marginBottom: 4 }}>Upgrade Account</Text>
+                            <Text style={{ ...Typography.caption, color: 'rgba(255,255,255,0.7)', marginBottom: Spacing.lg }}>Enter an access code to unlock all materials.</Text>
+
+                            <TextInput
+                                style={{
+                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                    height: 48,
+                                    borderRadius: BorderRadius.sm,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255,255,255,0.2)',
+                                    color: Colors.white,
+                                    paddingHorizontal: Spacing.md,
+                                    marginBottom: Spacing.md,
+                                    fontSize: 16,
+                                    fontWeight: '700',
+                                    letterSpacing: 2
+                                }}
+                                value={code}
+                                onChangeText={setCode}
+                                placeholder="NLC-XXXX-XXXX"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                autoCapitalize="characters"
+                            />
+
+                            <TouchableOpacity
+                                onPress={handleRedeem}
+                                disabled={loading || !code}
+                                style={{
+                                    backgroundColor: Colors.white,
+                                    height: 48,
+                                    borderRadius: BorderRadius.sm,
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator size="small" color={Colors.primaryDark} />
+                                ) : (
+                                    <Text style={{ color: Colors.primaryDark, fontWeight: '900' }}>REDEEM ACCESS CODE</Text>
                                 )}
-                            </View>
+                            </TouchableOpacity>
                         </View>
+                    )}
 
-                        {/* Redeem/Upgrade Section - Only visible when NOT subscribed or expired */}
-                        {!isSubscribed && !fetchingSub && (
-                            <View className="bg-slate-900 dark:bg-slate-900 border border-slate-800 p-8 rounded-[40px] mb-8 shadow-xl shadow-slate-200 dark:shadow-none">
-                                <Text className="text-white text-2xl font-black mb-1">Upgrade Account</Text>
-                                <Text className="text-slate-400 text-sm font-bold mb-8">Enter your activation code for instant access to premium resources.</Text>
-
-                                <View className="bg-white/10 border border-white/10 rounded-2xl px-5 h-16 flex-row items-center mb-6">
-                                    <MaterialCommunityIcons name="tag-outline" size={24} color="white" />
-                                    <TextInput
-                                        className="flex-1 ml-4 text-white font-black text-xl tracking-[4px]"
-                                        placeholder="XXXX-XXXX"
-                                        placeholderTextColor="rgba(255,255,255,0.3)"
-                                        value={code}
-                                        onChangeText={setCode}
-                                        autoCapitalize="characters"
-                                        maxLength={14}
-                                    />
-                                </View>
-
-                                <TouchableOpacity
-                                    onPress={handleRedeem}
-                                    disabled={loading || !code}
-                                    className={`bg-white h-16 rounded-2xl items-center justify-center ${(!code || loading) ? 'opacity-50' : ''}`}
-                                >
-                                    {loading ? (
-                                        <ActivityIndicator color="#0F172A" />
-                                    ) : (
-                                        <Text className="text-slate-900 font-black uppercase tracking-widest text-sm">Verify & Upgrade Account</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        {/* Settings Links */}
-                        <View className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
+                    {/* Menu Options */}
+                    <Text style={{ ...Typography.caption, color: Colors.textMuted, marginBottom: Spacing.sm, fontWeight: '700' }}>ACCOUNT SETTINGS</Text>
+                    <View style={{
+                        backgroundColor: Colors.white,
+                        borderWidth: 1,
+                        borderColor: Colors.border,
+                        borderRadius: BorderRadius.md,
+                        overflow: 'hidden',
+                        marginBottom: Spacing.xl,
+                        ...Shadow.small
+                    }}>
+                        {[
+                            { name: 'Study Notebook', icon: 'book-edit-outline', screen: 'Notebook', color: Colors.primary },
+                            { name: 'Memory Decks', icon: 'cards-variant', screen: 'FlashcardDecks', color: Colors.primary },
+                            { name: 'Notifications', icon: 'bell-outline', screen: 'Notifications', color: Colors.text, badge: unreadCount },
+                            { name: 'Privacy Policy', icon: 'shield-check-outline', screen: 'Privacy', color: Colors.textMuted },
+                            { name: 'Support Helpdesk', icon: 'help-circle-outline', screen: 'Support', color: Colors.textMuted }
+                        ].map((item, index, arr) => (
                             <TouchableOpacity
-                                onPress={() => navigation.navigate('Notebook')}
-                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
+                                key={item.name}
+                                onPress={() => navigation.navigate(item.screen)}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    padding: Spacing.md,
+                                    borderBottomWidth: index === arr.length - 1 ? 0 : 1,
+                                    borderBottomColor: Colors.borderLight
+                                }}
                             >
-                                <View className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl items-center justify-center">
-                                    <MaterialCommunityIcons name="book-edit-outline" size={20} color={isDark ? "#60A5FA" : "#2563EB"} />
+                                <View style={{ width: 32, alignItems: 'center' }}>
+                                    <MaterialCommunityIcons name={item.icon as any} size={22} color={item.color} />
                                 </View>
-                                <View className="flex-1 ml-4">
-                                    <Text className="text-slate-900 dark:text-white font-black">My Study Notebook</Text>
-                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-0.5">View your study reflections</Text>
-                                </View>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('FlashcardDecks')}
-                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
-                            >
-                                <View className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl items-center justify-center">
-                                    <MaterialCommunityIcons name="cards-variant" size={20} color={isDark ? "#818CF8" : "#4F46E5"} />
-                                </View>
-                                <View className="flex-1 ml-4">
-                                    <Text className="text-slate-900 dark:text-white font-black">My Memory Decks</Text>
-                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-widest mt-0.5">Digital Flashcard Revision</Text>
-                                </View>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Notifications')}
-                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
-                            >
-                                <View className="relative">
-                                    <MaterialCommunityIcons name="bell-outline" size={20} color={isDark ? "#94A3B8" : "#64748B"} />
-                                    {unreadCount > 0 && (
-                                        <View className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900" />
-                                    )}
-                                </View>
-                                <Text className="flex-1 ml-4 text-slate-900 dark:text-white font-bold">In-App Notifications</Text>
-                                {unreadCount > 0 && (
-                                    <View className="bg-blue-600 px-2 py-0.5 rounded-full mr-2">
-                                        <Text className="text-white text-[10px] font-black">{unreadCount}</Text>
+                                <Text style={{ flex: 1, marginLeft: Spacing.md, fontWeight: '600' }}>{item.name}</Text>
+                                {item.badge ? (
+                                    <View style={{ backgroundColor: Colors.error, paddingHorizontal: 6, borderRadius: 10, marginRight: Spacing.sm }}>
+                                        <Text style={{ color: Colors.white, fontSize: 10, fontWeight: '700' }}>{item.badge}</Text>
                                     </View>
-                                )}
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
+                                ) : null}
+                                <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
                             </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Privacy')}
-                                className="px-6 py-5 flex-row items-center border-b border-slate-50 dark:border-slate-800"
-                            >
-                                <MaterialCommunityIcons name="shield-check-outline" size={20} color={isDark ? "#94A3B8" : "#64748B"} />
-                                <Text className="flex-1 ml-4 text-slate-900 dark:text-white font-bold">Privacy & Security</Text>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={() => navigation.navigate('Support')}
-                                className="px-6 py-5 flex-row items-center"
-                            >
-                                <MaterialCommunityIcons name="help-circle-outline" size={20} color={isDark ? "#94A3B8" : "#64748B"} />
-                                <Text className="flex-1 ml-4 text-slate-900 dark:text-white font-bold">Nurse Support Desk</Text>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text className="text-center text-slate-400 font-bold text-[9px] uppercase tracking-[4px] mb-10">
-                            Version 1.0.2 • Made for Nurses
-                        </Text>
+                        ))}
                     </View>
-                </ScrollView>
-            </SafeAreaView>
+
+                    <Text style={{ textAlign: 'center', ...Typography.caption, color: Colors.textMuted, marginBottom: Spacing.xl }}>
+                        VERSION 1.0.5 • NURSE LEARNING CORNER
+                    </Text>
+                </View>
+            </ScrollView>
         </View>
     );
 };
 
 export default AccountScreen;
+

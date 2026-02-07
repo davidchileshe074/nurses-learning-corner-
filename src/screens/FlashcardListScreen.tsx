@@ -1,29 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    StatusBar,
-    useColorScheme,
+  
     RefreshControl,
     Modal,
     TextInput,
     Alert,
     KeyboardAvoidingView,
     Platform,
-    ScrollView
+    ScrollView,
+    Pressable
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { flashcardService, Flashcard } from '../services/flashcards';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const FlashcardListScreen = ({ route, navigation }: any) => {
     const { deckId, deckTitle } = route.params;
-    const isDark = useColorScheme() === 'dark';
+    const insets = useSafeAreaInsets();
+
     const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -34,16 +37,16 @@ const FlashcardListScreen = ({ route, navigation }: any) => {
     const [backText, setBackText] = useState('');
     const [adding, setAdding] = useState(false);
 
-    const fetchCards = async () => {
+    const fetchCards = useCallback(async () => {
         const data = await flashcardService.getFlashcards(deckId);
         setFlashcards(data);
         setLoading(false);
         setRefreshing(false);
-    };
+    }, [deckId]);
 
     useEffect(() => {
         fetchCards();
-    }, [deckId]);
+    }, [fetchCards]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -67,8 +70,7 @@ const FlashcardListScreen = ({ route, navigation }: any) => {
             setBackText('');
             Toast.show({
                 type: 'success',
-                text1: 'Card Added',
-                text2: 'One more piece of knowledge saved!'
+                text1: 'Card Added'
             });
         }
     };
@@ -86,7 +88,7 @@ const FlashcardListScreen = ({ route, navigation }: any) => {
                         const success = await flashcardService.deleteFlashcard(cardId);
                         if (success) {
                             setFlashcards(prev => prev.filter(c => c.$id !== cardId));
-                            Toast.show({ type: 'success', text1: 'Knowledge Deleted' });
+                            Toast.show({ type: 'success', text1: 'Card Deleted' });
                         }
                     }
                 }
@@ -94,165 +96,198 @@ const FlashcardListScreen = ({ route, navigation }: any) => {
         );
     };
 
-    const renderCardItem = ({ item }: { item: Flashcard }) => (
-        <View className="bg-white dark:bg-slate-900 mx-6 mb-4 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <View className="p-5">
-                <View className="flex-row justify-between mb-3">
-                    <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Question / Concept</Text>
-                    <TouchableOpacity onPress={() => handleDeleteCard(item.$id)}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
+    const renderCardItem = ({ item, index }: { item: Flashcard, index: number }) => (
+        <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
+            <View style={{
+                backgroundColor: Colors.white,
+                marginHorizontal: Spacing.md,
+                marginBottom: Spacing.sm,
+                borderRadius: BorderRadius.xs,
+                borderWidth: 1,
+                borderColor: Colors.border,
+                padding: Spacing.md,
+                ...Shadow.small
+            }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.caption, color: Colors.primary, fontWeight: '700', textTransform: 'uppercase' }}>Question</Text>
+                        <Text style={{ ...Typography.body, fontWeight: '700', marginTop: 2 }}>{item.front}</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => handleDeleteCard(item.$id)}
+                        style={{ padding: 4 }}
+                    >
+                        <MaterialCommunityIcons name="delete-outline" size={20} color={Colors.error} />
                     </TouchableOpacity>
                 </View>
-                <Text className="text-slate-900 dark:text-white font-bold text-sm mb-4 leading-5">{item.front}</Text>
 
-                <View className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border-l-[3px] border-blue-500">
-                    <Text className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Answer / Definition</Text>
-                    <Text className="text-slate-600 dark:text-slate-300 text-xs italic leading-5">{item.back}</Text>
+                <View style={{
+                    backgroundColor: Colors.background,
+                    padding: Spacing.sm,
+                    borderRadius: BorderRadius.xs,
+                    borderLeftWidth: 3,
+                    borderLeftColor: Colors.primary
+                }}>
+                    <Text style={{ ...Typography.caption, color: Colors.textMuted, textTransform: 'uppercase' }}>Answer</Text>
+                    <Text style={{ ...Typography.body, fontSize: 13, marginTop: 2 }}>{item.back}</Text>
                 </View>
             </View>
-        </View>
+        </Animated.View>
     );
 
     return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-                {/* Header */}
-                <View className="flex-row items-center px-6 py-4 justify-between">
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        className="w-11 h-11 items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800"
-                    >
-                        <MaterialCommunityIcons name="chevron-left" size={28} color={isDark ? "#FFFFFF" : "#0F172A"} />
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
                     </TouchableOpacity>
-                    <View className="items-center flex-1 mx-4">
-                        <Text className="text-lg font-black text-slate-900 dark:text-white tracking-tighter text-center" numberOfLines={1}>{deckTitle}</Text>
-                        <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{flashcards.length} Cards Available</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }} numberOfLines={1}>{deckTitle}</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>{flashcards.length} Cards</Text>
                     </View>
                     <TouchableOpacity
                         onPress={() => setIsAddVisible(true)}
-                        className="w-11 h-11 items-center justify-center bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20"
+                        style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
                     >
-                        <MaterialCommunityIcons name="plus" size={28} color="white" />
+                        <MaterialCommunityIcons name="plus" size={24} color={Colors.white} />
                     </TouchableOpacity>
                 </View>
+            </View>
 
+            <View style={{ flex: 1 }}>
                 {loading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator size="large" color="#2563EB" />
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
                 ) : (
                     <FlatList
                         data={flashcards}
                         renderItem={renderCardItem}
                         keyExtractor={item => item.$id}
-                        contentContainerStyle={{ paddingTop: 10, paddingBottom: 120 }}
+                        contentContainerStyle={{ paddingTop: Spacing.md, paddingBottom: 100 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
                         ListEmptyComponent={
-                            <View className="flex-1 items-center justify-center mt-20 px-10">
-                                <View className="w-24 h-24 bg-slate-50 dark:bg-slate-900 rounded-[40px] items-center justify-center mb-6">
-                                    <MaterialCommunityIcons name="pencil-plus-outline" size={44} color={isDark ? "#334155" : "#CBD5E1"} />
-                                </View>
-                                <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-2">Deck is Empty</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-center font-bold text-xs leading-5">Tap the plus icon above to add your first question and answer to this memory deck.</Text>
+                            <View style={{ alignItems: 'center', marginTop: 100, paddingHorizontal: 40 }}>
+                                <MaterialCommunityIcons name="cards-outline" size={64} color={Colors.border} />
+                                <Text style={{ ...Typography.h2, textAlign: 'center', marginTop: Spacing.md }}>No Cards Yet</Text>
+                                <Text style={{ ...Typography.body, textAlign: 'center', color: Colors.textMuted, marginTop: Spacing.sm }}>
+                                    Add cards to start studying this deck.
+                                </Text>
                             </View>
                         }
                     />
                 )}
+            </View>
 
-                {/* Floating Study Button */}
-                {flashcards.length > 0 && (
-                    <View className="absolute bottom-10 left-0 right-0 px-6">
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('FlashcardStudy', { deckId, deckTitle })}
-                            activeOpacity={0.95}
-                        >
-                            <LinearGradient
-                                colors={['#2563EB', '#1D4ED8']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                className="py-5 rounded-[28px] items-center justify-center flex-row shadow-2xl shadow-blue-500/40"
-                            >
-                                <MaterialCommunityIcons name="lightning-bolt" size={24} color="white" />
-                                <Text className="text-white font-black text-base uppercase tracking-[2px] ml-3">Begin Study Session</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-                {/* Add Card Modal */}
-                <Modal visible={isAddVisible} transparent animationType="slide">
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        className="flex-1"
+            {/* Floating Action Button for Study */}
+            {flashcards.length > 0 && (
+                <View style={{ position: 'absolute', bottom: Spacing.lg, left: Spacing.lg, right: Spacing.lg }}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('FlashcardStudy', { deckId, deckTitle })}
+                        style={{
+                            backgroundColor: Colors.primary,
+                            height: 52,
+                            borderRadius: BorderRadius.xs,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            ...Shadow.medium
+                        }}
                     >
-                        <Pressable className="flex-1 bg-black/50" onPress={() => setIsAddVisible(false)} />
-                        <View className="bg-white dark:bg-slate-900 rounded-t-[48px] p-8 shadow-2xl">
-                            <View className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
-                            <Text className="text-2xl font-black text-slate-900 dark:text-white mb-6">Create Knowledge Card</Text>
+                        <MaterialCommunityIcons name="play" size={20} color={Colors.white} />
+                        <Text style={{ color: Colors.white, fontWeight: '700', marginLeft: Spacing.sm, textTransform: 'uppercase', letterSpacing: 1 }}>
+                            Study Now
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                <View className="space-y-6">
-                                    <View>
-                                        <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 ml-1">Card Front (Question)</Text>
-                                        <View className="bg-slate-50 dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                            <TextInput
-                                                placeholder="e.g. What are the 5 signs of inflammation?"
-                                                className="text-slate-900 dark:text-white font-bold leading-6 min-h-[80px]"
-                                                placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                                multiline
-                                                value={frontText}
-                                                onChangeText={setFrontText}
-                                            />
-                                        </View>
-                                    </View>
+            {/* Add Card Modal */}
+            <Modal visible={isAddVisible} transparent animationType="fade">
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg }} onPress={() => setIsAddVisible(false)}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                        <View style={{ backgroundColor: Colors.white, borderRadius: BorderRadius.sm, overflow: 'hidden' }}>
+                            <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={{ color: Colors.white, fontWeight: '700' }}>New Card</Text>
+                                <TouchableOpacity onPress={() => setIsAddVisible(false)}>
+                                    <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
+                                </TouchableOpacity>
+                            </View>
 
-                                    <View>
-                                        <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 ml-1">Card Back (Answer)</Text>
-                                        <View className="bg-slate-50 dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                            <TextInput
-                                                placeholder="e.g. Heat, Redness, Swelling, Pain, Loss of Function"
-                                                className="text-slate-900 dark:text-white font-bold leading-6 min-h-[80px]"
-                                                placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                                multiline
-                                                value={backText}
-                                                onChangeText={setBackText}
-                                            />
-                                        </View>
-                                    </View>
-                                </View>
+                            <View style={{ padding: Spacing.md }}>
+                                <Text style={{ ...Typography.caption, color: Colors.textMuted, marginBottom: 4 }}>QUESTION (FRONT)</Text>
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        borderRadius: BorderRadius.xs,
+                                        padding: Spacing.sm,
+                                        minHeight: 80,
+                                        textAlignVertical: 'top'
+                                    }}
+                                    multiline
+                                    value={frontText}
+                                    onChangeText={setFrontText}
+                                    placeholder="Enter question..."
+                                />
+
+                                <Text style={{ ...Typography.caption, color: Colors.textMuted, marginTop: Spacing.md, marginBottom: 4 }}>ANSWER (BACK)</Text>
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        borderRadius: BorderRadius.xs,
+                                        padding: Spacing.sm,
+                                        minHeight: 80,
+                                        textAlignVertical: 'top'
+                                    }}
+                                    multiline
+                                    value={backText}
+                                    onChangeText={setBackText}
+                                    placeholder="Enter answer..."
+                                />
 
                                 <TouchableOpacity
                                     onPress={handleAddCard}
                                     disabled={adding}
-                                    className={`w-full py-5 rounded-[24px] mt-10 items-center justify-center flex-row shadow-xl shadow-blue-500/20 ${adding ? 'bg-blue-400' : 'bg-blue-600'}`}
+                                    style={{
+                                        backgroundColor: Colors.primary,
+                                        height: 44,
+                                        borderRadius: BorderRadius.xs,
+                                        marginTop: Spacing.lg,
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
                                 >
-                                    {adding ? <ActivityIndicator color="white" size="small" className="mr-3" /> : (
-                                        <MaterialCommunityIcons name="check-decagram-outline" size={24} color="white" className="mr-3" />
+                                    {adding ? <ActivityIndicator color="white" /> : (
+                                        <Text style={{ color: Colors.white, fontWeight: '700' }}>CREATE CARD</Text>
                                     )}
-                                    <Text className="text-white font-black text-base uppercase tracking-widest">
-                                        {adding ? 'Storing...' : 'Deploy Card'}
-                                    </Text>
                                 </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    onPress={() => setIsAddVisible(false)}
-                                    className="w-full py-4 mb-4 mt-2 items-center"
-                                >
-                                    <Text className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Cancel Card</Text>
-                                </TouchableOpacity>
-                            </ScrollView>
+                            </View>
                         </View>
                     </KeyboardAvoidingView>
-                </Modal>
-            </SafeAreaView>
+                </Pressable>
+            </Modal>
         </View>
     );
 };
 
-import { Pressable } from 'react-native'; // Fix for Pressable import
 export default FlashcardListScreen;
+

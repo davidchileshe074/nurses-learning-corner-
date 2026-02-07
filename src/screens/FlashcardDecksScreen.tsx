@@ -1,27 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    StatusBar,
-    useColorScheme,
     RefreshControl,
     Modal,
     TextInput,
-    Alert
+    Pressable,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { flashcardService, FlashcardDeck } from '../services/flashcards';
-import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
+import LoadingView from '../components/LoadingView';
 
 const FlashcardDecksScreen = ({ navigation }: any) => {
     const { user } = useAuth();
-    const isDark = useColorScheme() === 'dark';
+    const insets = useSafeAreaInsets();
     const [decks, setDecks] = useState<FlashcardDeck[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -32,17 +35,17 @@ const FlashcardDecksScreen = ({ navigation }: any) => {
     const [newDeckSubject, setNewDeckSubject] = useState('');
     const [creating, setCreating] = useState(false);
 
-    const fetchDecks = async () => {
+    const fetchDecks = useCallback(async () => {
         if (!user) return;
         const data = await flashcardService.getUserDecks(user.userId);
         setDecks(data);
         setLoading(false);
         setRefreshing(false);
-    };
+    }, [user]);
 
     useEffect(() => {
         fetchDecks();
-    }, [user]);
+    }, [fetchDecks]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -67,151 +70,199 @@ const FlashcardDecksScreen = ({ navigation }: any) => {
             setNewDeckSubject('');
             Toast.show({
                 type: 'success',
-                text1: 'Deck Created',
-                text2: `${newDeckTitle} is ready for cards!`
+                text1: 'Deck Created'
             });
-            // Navigate to deck detail to start adding cards
             navigation.navigate('FlashcardList', { deckId: deck.$id, deckTitle: deck.title });
         }
     };
 
-    const renderDeckItem = React.useCallback(({ item }: { item: FlashcardDeck }) => (
-        <TouchableOpacity
-            onPress={() => navigation.navigate('FlashcardList', { deckId: item.$id, deckTitle: item.title })}
-            activeOpacity={0.8}
-            className="bg-white dark:bg-slate-900 mx-6 mb-4 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm"
-        >
-            <View className="flex-row justify-between items-start mb-4">
-                <View className="flex-1">
-                    <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[2px] mb-1">
-                        {item.subject || 'Nursing Revision'}
-                    </Text>
-                    <Text className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-                        {item.title}
-                    </Text>
+    const renderDeckItem = ({ item, index }: { item: FlashcardDeck, index: number }) => (
+        <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
+            <TouchableOpacity
+                onPress={() => navigation.navigate('FlashcardList', { deckId: item.$id, deckTitle: item.title })}
+                activeOpacity={0.7}
+                style={{
+                    backgroundColor: Colors.white,
+                    marginHorizontal: Spacing.md,
+                    marginBottom: Spacing.sm,
+                    borderRadius: BorderRadius.md,
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                    padding: Spacing.md,
+                    ...Shadow.small
+                }}
+            >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.caption, color: Colors.primary, fontWeight: '700', textTransform: 'uppercase' }}>
+                            {item.subject || 'General'}
+                        </Text>
+                        <Text style={{ ...Typography.h3, marginTop: 2 }}>{item.title}</Text>
+                    </View>
+                    <View style={{ width: 40, height: 40, borderRadius: BorderRadius.sm, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="cards-outline" size={20} color={Colors.primary} />
+                    </View>
                 </View>
-                <View className="bg-blue-50 dark:bg-blue-900/20 w-12 h-12 rounded-2xl items-center justify-center">
-                    <MaterialCommunityIcons name="cards-outline" size={24} color={isDark ? "#60A5FA" : "#2563EB"} />
-                </View>
-            </View>
 
-            <View className="flex-row items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-800">
-                <View className="flex-row items-center">
-                    <MaterialCommunityIcons name="clock-outline" size={14} color={isDark ? "#475569" : "#94A3B8"} />
-                    <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        Updated {new Date(item.updatedAt).toLocaleDateString()}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.borderLight }}>
+                    <Text style={{ ...Typography.caption, color: Colors.textMuted }}>
+                        {new Date(item.updatedAt).toLocaleDateString()}
                     </Text>
-                </View>
-                <TouchableOpacity
-                    className="flex-row items-center bg-blue-600 px-4 py-2 rounded-xl"
-                    onPress={() => navigation.navigate('FlashcardStudy', { deckId: item.$id, deckTitle: item.title })}
-                >
-                    <MaterialCommunityIcons name="play" size={16} color="white" />
-                    <Text className="text-white font-black text-[10px] uppercase tracking-widest ml-1.5">Study Now</Text>
-                </TouchableOpacity>
-            </View>
-        </TouchableOpacity>
-    ), [isDark, navigation]);
-
-    return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top']}>
-
-                {/* Header */}
-                <View className="flex-row items-center px-6 py-4 justify-between">
-                    <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">My Memory Decks</Text>
                     <TouchableOpacity
-                        onPress={() => setIsCreateVisible(true)}
-                        className="w-11 h-11 items-center justify-center bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20"
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: Colors.primary,
+                            paddingHorizontal: Spacing.md,
+                            paddingVertical: 6,
+                            borderRadius: BorderRadius.sm
+                        }}
+                        onPress={() => navigation.navigate('FlashcardStudy', { deckId: item.$id, deckTitle: item.title })}
                     >
-                        <MaterialCommunityIcons name="plus" size={28} color="white" />
+                        <MaterialCommunityIcons name="play" size={14} color={Colors.white} />
+                        <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 11, marginLeft: 4, textTransform: 'uppercase' }}>Study</Text>
                     </TouchableOpacity>
                 </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
 
-                {loading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator size="large" color="#2563EB" />
+    return (
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
+
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>Memory Decks</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>{decks.length} Decks</Text>
                     </View>
+                    <TouchableOpacity
+                        onPress={() => setIsCreateVisible(true)}
+                        style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <MaterialCommunityIcons name="plus" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={{ flex: 1 }}>
+                {loading ? (
+                    <LoadingView message="Syncing Decks..." />
                 ) : (
                     <FlatList
                         data={decks}
                         renderItem={renderDeckItem}
                         keyExtractor={item => item.$id}
-                        contentContainerStyle={{ paddingTop: 10, paddingBottom: 100 }}
+                        contentContainerStyle={{ paddingTop: Spacing.md, paddingBottom: 100 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
                         ListEmptyComponent={
-                            <View className="flex-1 items-center justify-center mt-20 px-10">
-                                <View className="w-24 h-24 bg-slate-50 dark:bg-slate-900 rounded-[40px] items-center justify-center mb-6">
-                                    <MaterialCommunityIcons name="cards-variant" size={48} color={isDark ? "#334155" : "#CBD5E1"} />
-                                </View>
-                                <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-3">No Decks Found</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-center font-bold text-xs leading-5">Create your first revision deck to start mastering nursing concepts with spaced-repetition.</Text>
+                            <View style={{ alignItems: 'center', marginTop: 100, paddingHorizontal: 40 }}>
+                                <MaterialCommunityIcons name="cards-variant" size={64} color={Colors.border} />
+                                <Text style={{ ...Typography.h2, textAlign: 'center', marginTop: Spacing.md }}>No Decks Yet</Text>
+                                <Text style={{ ...Typography.body, textAlign: 'center', color: Colors.textMuted, marginTop: Spacing.sm }}>
+                                    Create a revision deck to start mastering nursing concepts.
+                                </Text>
                                 <TouchableOpacity
                                     onPress={() => setIsCreateVisible(true)}
-                                    className="mt-8 bg-blue-600 px-8 py-4 rounded-[20px] shadow-xl shadow-blue-500/10"
+                                    style={{
+                                        marginTop: Spacing.xl,
+                                        backgroundColor: Colors.primary,
+                                        paddingHorizontal: Spacing.xl,
+                                        paddingVertical: 12,
+                                        borderRadius: BorderRadius.sm
+                                    }}
                                 >
-                                    <Text className="text-white font-black uppercase tracking-widest text-[11px]">Create Your First Deck</Text>
+                                    <Text style={{ color: Colors.white, fontWeight: '700', textTransform: 'uppercase' }}>Create First Deck</Text>
                                 </TouchableOpacity>
                             </View>
                         }
                     />
                 )}
+            </View>
 
-                {/* Create Deck Modal */}
-                <Modal visible={isCreateVisible} transparent animationType="fade">
-                    <View className="flex-1 bg-black/60 justify-center px-6">
-                        <View className="bg-white dark:bg-slate-900 rounded-[40px] p-8 shadow-2xl">
-                            <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2">New Memory Deck</Text>
-                            <Text className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-widest mb-8">Organize your flashcards</Text>
-
-                            <View className="space-y-4">
-                                <View className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                    <TextInput
-                                        placeholder="Deck Title (e.g. Midwifery 101)"
-                                        className="text-slate-900 dark:text-white font-bold"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                        value={newDeckTitle}
-                                        onChangeText={setNewDeckTitle}
-                                    />
-                                </View>
-                                <View className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                                    <TextInput
-                                        placeholder="Subject (Optional)"
-                                        className="text-slate-900 dark:text-white font-bold"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                        value={newDeckSubject}
-                                        onChangeText={setNewDeckSubject}
-                                    />
-                                </View>
+            {/* Create Deck Modal */}
+            <Modal visible={isCreateVisible} transparent animationType="fade">
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg }} onPress={() => setIsCreateVisible(false)}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+                        <View style={{ backgroundColor: Colors.white, borderRadius: BorderRadius.md, overflow: 'hidden' }}>
+                            <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={{ color: Colors.white, fontWeight: '700' }}>New Deck</Text>
+                                <TouchableOpacity onPress={() => setIsCreateVisible(false)}>
+                                    <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
+                                </TouchableOpacity>
                             </View>
 
-                            <TouchableOpacity
-                                onPress={handleCreateDeck}
-                                disabled={creating}
-                                className={`w-full py-5 rounded-[24px] mt-8 items-center justify-center flex-row shadow-xl shadow-blue-500/20 ${creating ? 'bg-blue-400' : 'bg-blue-600'}`}
-                            >
-                                {creating ? <ActivityIndicator color="white" size="small" className="mr-3" /> : null}
-                                <Text className="text-white font-black text-base uppercase tracking-widest">
-                                    {creating ? 'Creating...' : 'Create Deck'}
-                                </Text>
-                            </TouchableOpacity>
+                            <View style={{ padding: Spacing.md }}>
+                                <Text style={{ ...Typography.caption, color: Colors.textMuted, marginBottom: 4 }}>DECK TITLE</Text>
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        borderRadius: BorderRadius.sm,
+                                        padding: Spacing.sm,
+                                        height: 44
+                                    }}
+                                    value={newDeckTitle}
+                                    onChangeText={setNewDeckTitle}
+                                    placeholder="e.g. Midwifery 101"
+                                />
 
-                            <TouchableOpacity
-                                onPress={() => setIsCreateVisible(false)}
-                                className="w-full py-4 mt-2 items-center"
-                            >
-                                <Text className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Go Back</Text>
-                            </TouchableOpacity>
+                                <Text style={{ ...Typography.caption, color: Colors.textMuted, marginTop: Spacing.md, marginBottom: 4 }}>SUBJECT (OPTIONAL)</Text>
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        borderRadius: BorderRadius.sm,
+                                        padding: Spacing.sm,
+                                        height: 44
+                                    }}
+                                    value={newDeckSubject}
+                                    onChangeText={setNewDeckSubject}
+                                    placeholder="e.g. Nursing Module 2"
+                                />
+
+                                <TouchableOpacity
+                                    onPress={handleCreateDeck}
+                                    disabled={creating}
+                                    style={{
+                                        backgroundColor: Colors.primary,
+                                        height: 44,
+                                        borderRadius: BorderRadius.xs,
+                                        marginTop: Spacing.lg,
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    {creating ? <ActivityIndicator color="white" /> : (
+                                        <Text style={{ color: Colors.white, fontWeight: '700' }}>CREATE DECK</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                </Modal>
-            </SafeAreaView>
+                    </KeyboardAvoidingView>
+                </Pressable>
+            </Modal>
         </View>
     );
 };
 
 export default FlashcardDecksScreen;
+

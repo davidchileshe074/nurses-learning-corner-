@@ -23,7 +23,10 @@ import { getLocalDownloads } from '../services/downloads';
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatProgram, formatYear } from '../utils/formatters';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
+import LoadingView from '../components/LoadingView';
 
 const LibraryScreen = ({ route, navigation: navProp }: any) => {
     let navigation: any;
@@ -267,230 +270,160 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
         }
     };
 
-    const renderItem = useCallback(({ item }: { item: ContentItem }) => {
-        // console.log('[Library] Rendering item:', item.title);
+    const renderItem = useCallback(({ item, index }: { item: ContentItem, index: number }) => {
         return (
-            <TouchableOpacity
-                onPress={() => handleItemPress(item)}
-                activeOpacity={0.7}
-                className="bg-white dark:bg-slate-800 mx-6 mb-4 p-5 rounded-[28px] border border-slate-100 dark:border-slate-700/50 shadow-sm flex-row items-center"
-            >
-                {/* Icon Container with subtle gradient intent */}
-                <View className={`w-14 h-14 rounded-2xl items-center justify-center mr-5 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-blue-50 border border-blue-100'
-                    }`}>
-                    <MaterialCommunityIcons
-                        name={getIconForType(item.type)}
-                        size={28}
-                        color={isDark ? '#60A5FA' : '#2563EB'}
-                    />
-                </View>
+            <Animated.View entering={FadeInDown.delay(index * 50).springify().damping(12)}>
+                <TouchableOpacity
+                    onPress={() => handleItemPress(item)}
+                    activeOpacity={0.7}
+                    style={{
+                        backgroundColor: Colors.white,
+                        marginHorizontal: Spacing.md,
+                        marginBottom: Spacing.sm,
+                        padding: Spacing.md,
+                        borderRadius: BorderRadius.md,
+                        borderWidth: 1,
+                        borderColor: Colors.border,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        ...Shadow.small
+                    }}
+                >
+                    {/* Icon Container */}
+                    <View style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: BorderRadius.sm,
+                        backgroundColor: Colors.primaryLight,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: Spacing.md
+                    }}>
+                        <MaterialCommunityIcons
+                            name={getIconForType(item.type)}
+                            size={20}
+                            color={Colors.primary}
+                        />
+                    </View>
 
-                {/* Content Info */}
-                <View className="flex-1 pr-2">
-                    <Text
-                        className="text-slate-900 dark:text-white font-black text-base mb-1.5 leading-tight"
-                        numberOfLines={2}
-                    >
-                        {item.title}
-                    </Text>
-                    <View className="flex-row items-center flex-wrap">
-                        <View className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md mr-2">
-                            <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-200" numberOfLines={1}>
-                                {item.subject || 'General Nursing'}
-                            </Text>
-                        </View>
-                        <View className="flex-row items-center">
-                            <View className="w-1 h-1 rounded-full bg-slate-200 dark:bg-slate-700 mx-1.5" />
-                            <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-tighter">
-                                {item.type?.replace('_', ' ') || 'MATERIAL'}
-                            </Text>
+                    {/* Content Info */}
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.body, fontWeight: '700' }} numberOfLines={1}>{item.title}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                            <Text style={Typography.caption}>{item.subject || 'General'}</Text>
+                            <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.border, marginHorizontal: 8 }} />
+                            <Text style={{ ...Typography.caption, color: Colors.primary }}>{item.type?.replace('_', ' ') || 'MATERIAL'}</Text>
                         </View>
                     </View>
-                </View>
 
-                {/* Visual Cue */}
-                <View className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-full border border-slate-100 dark:border-slate-800">
-                    <MaterialCommunityIcons
-                        name="chevron-right"
-                        size={18}
-                        color={isDark ? '#64748B' : '#94A3B8'}
-                    />
-                </View>
-            </TouchableOpacity>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
+                </TouchableOpacity>
+            </Animated.View>
         );
-    }, [isDark, handleItemPress]);
+    }, [handleItemPress]);
 
     const filterOptions = ['All', 'Downloads', 'PDF', 'Audio', 'Past Paper', 'Marking Key', 'Others'];
 
     const renderFooter = useCallback(() => {
         if (!loadingMore) return <View className="h-20" />;
-        return (
-            <View className="py-8 items-center justify-center">
-                <ActivityIndicator size="large" color={isDark ? "#60A5FA" : "#2563EB"} />
-            </View>
-        );
-    }, [loadingMore, isDark]);
+        return <LoadingView fullScreen={false} size="small" message="Loading more..." />;
+    }, [loadingMore]);
+
+    if (loading) {
+        return <LoadingView message="Opening Library..." />;
+    }
 
     return (
-        <View className="flex-1 bg-slate-50 dark:bg-slate-900">
-            <StatusBar style={isDark ? "light" : "dark"} />
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-            {/* Fixed Header Content - Inlined for stability */}
-            <View className="bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-800/50 shadow-sm z-50">
-                <View style={{ paddingTop: insets.top }} className="px-6 pb-2">
-                    <View className="relative z-50 mt-2">
-                        <View className="flex-row items-center bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 rounded-2xl px-4 h-14 shadow-sm">
-                            <MaterialCommunityIcons name="magnify" size={22} color={isDark ? "#60A5FA" : "#2563EB"} />
-                            <TextInput
-                                className="flex-1 ml-3 text-slate-900 dark:text-white font-bold text-base"
-                                placeholder={activeFilter === 'Downloads' ? "Search downloads..." : "Search topics..."}
-                                placeholderTextColor={isDark ? "#94A3B8" : "#94A3B8"}
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                selectionColor="#2563EB"
-                            />
-                            {searchQuery.length > 0 && (
-                                <TouchableOpacity onPress={() => setSearchQuery('')} className="p-1">
-                                    <MaterialCommunityIcons name="close-circle" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
+            {/* DHIS2 Standard Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>Library</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowCourseModal(true)}>
+                        <MaterialCommunityIcons name="filter-variant" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                </View>
 
-                        {/* Suggestions Dropdown */}
-                        {searchQuery.length > 1 && suggestions.length > 0 && (
-                            <View className="absolute top-[64px] left-0 right-0 bg-white dark:bg-slate-800 rounded-[32px] shadow-2xl border border-slate-100 dark:border-slate-700/50 z-[100] overflow-hidden">
-                                <View className="px-6 py-4 border-b border-slate-50 dark:border-slate-700/50 flex-row justify-between items-center bg-slate-50/30 dark:bg-slate-800/40">
-                                    <Text className="text-[11px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[2px]">Quick Results</Text>
-                                    <View className="bg-blue-50 dark:bg-blue-900/40 px-3 py-1 rounded-full">
-                                        <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400">{suggestions.length}</Text>
-                                    </View>
-                                </View>
-                                <ScrollView
-                                    style={{ maxHeight: 380 }}
-                                    keyboardShouldPersistTaps="handled"
-                                    showsVerticalScrollIndicator={false}
-                                >
-                                    {suggestions.map((suggestion: any) => (
-                                        <TouchableOpacity
-                                            key={suggestion.id}
-                                            className="px-6 py-4 flex-row items-center border-b border-slate-50 dark:border-slate-800/30"
-                                            onPress={() => {
-                                                if (suggestion.type === 'subject') {
-                                                    setActiveSubject(suggestion.label);
-                                                    setSearchQuery('');
-                                                } else if (suggestion.type === 'content') {
-                                                    handleItemPress(suggestion.item);
-                                                }
-                                            }}
-                                        >
-                                            <View className={`w-11 h-11 rounded-2xl items-center justify-center mr-4 ${suggestion.type === 'subject'
-                                                ? 'bg-blue-50 dark:bg-blue-900/20'
-                                                : 'bg-slate-50 dark:bg-slate-800'
-                                                }`}>
-                                                <MaterialCommunityIcons
-                                                    name={suggestion.type === 'subject' ? 'bookmark-outline' : getIconForType(suggestion.item?.type)}
-                                                    size={22}
-                                                    color={suggestion.type === 'subject' ? '#2563EB' : (isDark ? '#94A3B8' : '#64748B')}
-                                                />
-                                            </View>
-                                            <View className="flex-1">
-                                                <Text className="text-[15px] font-bold text-slate-900 dark:text-white" numberOfLines={1}>
-                                                    {suggestion.label}
-                                                </Text>
-                                                <Text className="text-[11px] text-slate-500 dark:text-slate-300 font-semibold mt-0.5 uppercase tracking-wider">
-                                                    {suggestion.type === 'subject' ? 'Course focus' : `${suggestion.item?.type?.replace('_', ' ') || 'Document'}`}
-                                                </Text>
-                                            </View>
-                                            <View className="bg-slate-100 dark:bg-slate-700 w-8 h-8 rounded-full items-center justify-center">
-                                                <MaterialCommunityIcons name="arrow-top-left" size={16} color={isDark ? '#CBD5E1' : '#94A3B8'} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                                <View className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 flex-row items-center">
-                                    <MaterialCommunityIcons name="information-outline" size={14} color={isDark ? "#94A3B8" : "#94A3B8"} />
-                                    <Text className="ml-2 text-[10px] text-slate-400 dark:text-slate-300 font-medium italic">Tap result to filter or view</Text>
-                                </View>
-                            </View>
+                {/* Search Bar */}
+                <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.md }}>
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        height: 40,
+                        borderRadius: BorderRadius.sm,
+                        paddingHorizontal: Spacing.sm
+                    }}>
+                        <MaterialCommunityIcons name="magnify" size={20} color={Colors.white} />
+                        <TextInput
+                            style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.white, fontSize: 14 }}
+                            placeholder="Search library..."
+                            placeholderTextColor="rgba(255,255,255,0.6)"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                <MaterialCommunityIcons name="close-circle" size={18} color={Colors.white} />
+                            </TouchableOpacity>
                         )}
                     </View>
-
-                    {/* Sub-Filters area */}
-                    {!searchQuery && (
-                        <View className="mt-4 pb-3">
-                            {/* Active Indicators */}
-                            {(activeSubject || activeFilter !== 'All') && (
-                                <View className="flex-row items-center mb-3 px-1">
-                                    <Text className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Using:</Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                                        {activeSubject && (
-                                            <View className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800/50 mr-2 flex-row items-center">
-                                                <Text className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mr-1">{activeSubject}</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => setActiveSubject(null)}
-                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                >
-                                                    <MaterialCommunityIcons name="close" size={10} color="#2563EB" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
-                                        {activeFilter !== 'All' && (
-                                            <View className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 mr-2 flex-row items-center">
-                                                <Text className="text-[9px] font-bold text-slate-600 dark:text-slate-400 mr-1">{activeFilter}</Text>
-                                                <TouchableOpacity
-                                                    onPress={() => setActiveFilter('All')}
-                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                >
-                                                    <MaterialCommunityIcons name="close" size={10} color="#475569" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
-                                    </ScrollView>
-                                </View>
-                            )}
-
-                            {/* Course filtering via Modal */}
-                            {activeFilter !== 'Downloads' && (
-                                <View className="mb-3 px-1">
-                                    <TouchableOpacity
-                                        onPress={() => setShowCourseModal(true)}
-                                        className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 rounded-2xl px-4 py-3 flex-row justify-between items-center"
-                                    >
-                                        <View className="flex-row items-center">
-                                            <MaterialCommunityIcons name="filter-variant" size={20} color={isDark ? "#60A5FA" : "#2563EB"} />
-                                            <Text className="ml-2 font-bold text-slate-800 dark:text-slate-200">
-                                                {activeSubject || 'Filter by Course'}
-                                            </Text>
-                                        </View>
-                                        <MaterialCommunityIcons name="chevron-down" size={20} color={isDark ? "#94A3B8" : "#64748B"} />
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                            {/* Filter Options horizontal ScrollView */}
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={{ paddingRight: 24 }}
-                            >
-                                {filterOptions.map((item) => (
-                                    <TouchableOpacity
-                                        key={item}
-                                        onPress={() => setActiveFilter(item)}
-                                        className={`flex-row items-center px-6 py-1.5 rounded-full mr-2 border ${activeFilter === item
-                                            ? 'bg-slate-900 dark:bg-white border-slate-900 dark:border-white'
-                                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                                            }`}
-                                    >
-                                        <Text className={`font-bold text-[11px] ${activeFilter === item ? 'text-white dark:text-slate-900' : 'text-slate-600 dark:text-slate-300'}`}>
-                                            {item}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
                 </View>
+            </View>
+
+            {/* Filter Pills */}
+            <View style={{
+                backgroundColor: Colors.white,
+                borderBottomWidth: 1,
+                borderBottomColor: Colors.border,
+                paddingVertical: Spacing.sm
+            }}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+                >
+                    {filterOptions.map((item) => (
+                        <TouchableOpacity
+                            key={item}
+                            onPress={() => setActiveFilter(item)}
+                            style={{
+                                paddingHorizontal: Spacing.md,
+                                paddingVertical: 6,
+                                borderRadius: BorderRadius.full,
+                                backgroundColor: activeFilter === item ? Colors.primaryLight : 'transparent',
+                                borderWidth: 1,
+                                borderColor: activeFilter === item ? Colors.primary : Colors.border,
+                                marginRight: Spacing.sm
+                            }}
+                        >
+                            <Text style={{
+                                fontSize: 12,
+                                fontWeight: '600',
+                                color: activeFilter === item ? Colors.primary : Colors.textSecondary
+                            }}>
+                                {item}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             <FlatList
@@ -498,58 +431,71 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
                 renderItem={renderItem}
                 keyExtractor={(item) => item.$id}
                 ListHeaderComponent={
-                    <View className="px-6 pt-6 pb-4">
-                        <View className="flex-row justify-between items-center mb-6">
-                            <View>
-                                <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">Study Library</Text>
-                                <View className="flex-row items-center mt-1">
-                                    {user?.program && (
-                                        <View className="bg-brand-surface dark:bg-brand-dark/30 px-2 py-0.5 rounded-md border border-brand-light/10 mr-2">
-                                            <Text className="text-[10px] font-black text-brand dark:text-brand-light uppercase tracking-widest">
-                                                {formatProgram(user.program)}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    {user?.yearOfStudy && (
-                                        <View className="bg-accent/5 dark:bg-accent/10 px-2 py-0.5 rounded-md border border-accent/10">
-                                            <Text className="text-[10px] font-black text-accent uppercase tracking-widest">
-                                                {formatYear(user.yearOfStudy)}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
+                    <View style={{ padding: Spacing.md }}>
+                        <View style={{ marginBottom: Spacing.sm }}>
+                            <Text style={Typography.h2}>Learning Materials</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.xs, flexWrap: 'wrap', gap: Spacing.sm }}>
+                                {user?.program && (
+                                    <Text style={{ ...Typography.caption, fontWeight: '700', textTransform: 'uppercase' }}>
+                                        {formatProgram(user.program)}
+                                    </Text>
+                                )}
+                                {activeSubject && (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primaryLight, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.full }}>
+                                        <Text style={{ ...Typography.caption, color: Colors.primary, fontWeight: '700' }}>{activeSubject}</Text>
+                                        <TouchableOpacity onPress={() => setActiveSubject(null)} style={{ marginLeft: 4 }}>
+                                            <MaterialCommunityIcons name="close-circle" size={14} color={Colors.primary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                             </View>
                         </View>
 
                         {isSubscribed && (
                             <TouchableOpacity
                                 onPress={() => setShowAll(!showAll)}
-                                activeOpacity={0.8}
-                                className={`mb-6 p-4 rounded-[24px] flex-row items-center justify-between border ${showAll
-                                    ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20'
-                                    : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'
-                                    }`}
+                                style={{
+                                    marginTop: Spacing.md,
+                                    padding: Spacing.md,
+                                    backgroundColor: showAll ? Colors.primary : Colors.white,
+                                    borderWidth: 1,
+                                    borderColor: showAll ? Colors.primary : Colors.border,
+                                    borderRadius: BorderRadius.md,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}
                             >
-                                <View className="flex-row items-center flex-1">
-                                    <View className={`w-10 h-10 rounded-full items-center justify-center ${showAll ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/30'
-                                        }`}>
-                                        <MaterialCommunityIcons
-                                            name={showAll ? "earth" : "school-outline"}
-                                            size={20}
-                                            color={showAll ? "white" : "#2563EB"}
-                                        />
-                                    </View>
-                                    <View className="ml-4 flex-1">
-                                        <Text className={`font-black text-sm ${showAll ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <MaterialCommunityIcons
+                                        name={showAll ? "earth" : "school"}
+                                        size={20}
+                                        color={showAll ? Colors.white : Colors.primary}
+                                    />
+                                    <View style={{ marginLeft: Spacing.md }}>
+                                        <Text style={{ ...Typography.body, fontWeight: '700', color: showAll ? Colors.white : Colors.text }}>
                                             {showAll ? 'Global Discovery' : 'Curriculum Mode'}
                                         </Text>
-                                        <Text className={`text-[10px] font-medium leading-tight ${showAll ? 'text-blue-100' : 'text-slate-500 dark:text-slate-300'}`}>
-                                            {showAll ? 'Exploring resources from all nursing programs' : `Showing ${formatProgram(user?.program)} content`}
+                                        <Text style={{ ...Typography.caption, color: showAll ? 'rgba(255,255,255,0.7)' : Colors.textMuted }}>
+                                            {showAll ? 'All nursing programs' : `${formatProgram(user?.program)}`}
                                         </Text>
                                     </View>
                                 </View>
-                                <View className={`w-12 h-6 rounded-full px-1 justify-center ${showAll ? 'bg-white/30' : 'bg-slate-200 dark:bg-slate-800'}`}>
-                                    <View className={`w-4 h-4 rounded-full bg-white shadow-sm ${showAll ? 'self-end' : 'self-start'}`} />
+                                <View style={{
+                                    width: 32,
+                                    height: 16,
+                                    borderRadius: 8,
+                                    backgroundColor: showAll ? 'rgba(255,255,255,0.3)' : Colors.borderLight,
+                                    justifyContent: 'center',
+                                    paddingHorizontal: 2
+                                }}>
+                                    <View style={{
+                                        width: 12,
+                                        height: 12,
+                                        borderRadius: 6,
+                                        backgroundColor: Colors.white,
+                                        alignSelf: showAll ? 'flex-end' : 'flex-start'
+                                    }} />
                                 </View>
                             </TouchableOpacity>
                         )}
@@ -560,88 +506,47 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
                 onEndReachedThreshold={0.5}
                 contentContainerStyle={{ paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
-                keyboardDismissMode="on-drag"
-                keyboardShouldPersistTaps="handled"
-                removeClippedSubviews={false}
-                initialNumToRender={8}
-                maxToRenderPerBatch={10}
-                windowSize={5}
                 ListEmptyComponent={
-                    <View className="items-center mt-20 px-10">
-                        <View className="w-24 h-24 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center mb-6">
-                            <MaterialCommunityIcons name="folder-search-outline" size={48} color={isDark ? "#475569" : "#CBD5E1"} />
-                        </View>
-                        <Text className="text-xl font-black text-slate-800 dark:text-white text-center mb-2">No Resources Found</Text>
-                        <Text className="text-slate-400 dark:text-slate-500 text-center font-medium px-4">
-                            Try adjusting your filters or search query to find the learning material you need.
+                    <View style={{ alignItems: 'center', marginTop: Spacing.xxxl, paddingHorizontal: Spacing.xxxl }}>
+                        <MaterialCommunityIcons name="folder-search-outline" size={64} color={Colors.border} />
+                        <Text style={{ ...Typography.h2, textAlign: 'center', marginTop: Spacing.md }}>No Resources Found</Text>
+                        <Text style={{ ...Typography.body, textAlign: 'center', color: Colors.textMuted, marginTop: Spacing.sm }}>
+                            Try adjusting your filters or search.
                         </Text>
-                        {(activeFilter !== 'All' || activeSubject || debouncedSearchQuery) && (
-                            <TouchableOpacity
-                                onPress={() => { setActiveFilter('All'); setActiveSubject(null); setSearchQuery(''); }}
-                                className="mt-8 bg-blue-600 px-8 py-3 rounded-2xl shadow-lg shadow-blue-500/30"
-                            >
-                                <Text className="text-white font-black uppercase tracking-widest text-[11px]">Clear All Filters</Text>
-                            </TouchableOpacity>
-                        )}
                     </View>
                 }
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
             />
 
-            {/* Course Selection Modal */}
-            <Modal
-                visible={showCourseModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowCourseModal(false)}
-            >
-                <Pressable
-                    className="flex-1 bg-black/60 justify-end"
-                    onPress={() => setShowCourseModal(false)}
-                >
-                    <View className="bg-white dark:bg-slate-900 rounded-t-[40px] px-6 pt-8 pb-10 shadow-2xl">
-                        <View className="flex-row justify-between items-center mb-6">
-                            <View>
-                                <Text className="text-2xl font-black text-slate-900 dark:text-white">Select Course</Text>
-                                <Text className="text-slate-500 dark:text-slate-300 font-medium">Filter library by subject focus</Text>
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => setShowCourseModal(false)}
-                                className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-full items-center justify-center"
-                            >
-                                <MaterialCommunityIcons name="close" size={20} color={isDark ? "#FFFFFF" : "#0F172A"} />
+            {/* Course Modal */}
+            <Modal visible={showCourseModal} transparent={true} animationType="fade">
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.lg }} onPress={() => setShowCourseModal(false)}>
+                    <View style={{ backgroundColor: Colors.white, borderRadius: BorderRadius.md, overflow: 'hidden' }}>
+                        <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ color: Colors.white, fontWeight: '700' }}>Select Course</Text>
+                            <TouchableOpacity onPress={() => setShowCourseModal(false)}>
+                                <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
                             </TouchableOpacity>
                         </View>
-
-                        <ScrollView className="max-h-[60vh]" showsVerticalScrollIndicator={false}>
+                        <ScrollView style={{ maxHeight: '70%' }}>
                             <TouchableOpacity
                                 onPress={() => handleSelectCourse('All Courses')}
-                                className={`flex-row items-center p-4 rounded-2xl mb-2 ${!activeSubject ? 'bg-blue-600' : 'bg-slate-50 dark:bg-slate-800/50'}`}
+                                style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, flexDirection: 'row', justifyContent: 'space-between' }}
                             >
-                                <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${!activeSubject ? 'bg-white/20' : 'bg-blue-50 dark:bg-blue-900/20'}`}>
-                                    <MaterialCommunityIcons name="all-inclusive" size={20} color={!activeSubject ? '#FFFFFF' : '#2563EB'} />
-                                </View>
-                                <Text className={`flex-1 font-bold ${!activeSubject ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>All Courses</Text>
-                                {!activeSubject && <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />}
+                                <Text style={{ color: !activeSubject ? Colors.primary : Colors.text, fontWeight: !activeSubject ? '700' : '400' }}>All Courses</Text>
+                                {!activeSubject && <MaterialCommunityIcons name="check" size={20} color={Colors.primary} />}
                             </TouchableOpacity>
-
-                            {COURSES.map((course) => {
-                                const isActive = activeSubject === course;
-                                return (
-                                    <TouchableOpacity
-                                        key={course}
-                                        onPress={() => handleSelectCourse(course)}
-                                        className={`flex-row items-center p-4 rounded-2xl mb-2 ${isActive ? 'bg-blue-600' : 'bg-slate-50 dark:bg-slate-800/50'}`}
-                                    >
-                                        <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${isActive ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                                            <MaterialCommunityIcons name="book-outline" size={20} color={isActive ? '#FFFFFF' : (isDark ? '#94A3B8' : '#64748B')} />
-                                        </View>
-                                        <Text className={`flex-1 font-bold ${isActive ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>{course}</Text>
-                                        {isActive && <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />}
-                                    </TouchableOpacity>
-                                );
-                            })}
+                            {COURSES.map((course) => (
+                                <TouchableOpacity
+                                    key={course}
+                                    onPress={() => handleSelectCourse(course)}
+                                    style={{ padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, flexDirection: 'row', justifyContent: 'space-between' }}
+                                >
+                                    <Text style={{ color: activeSubject === course ? Colors.primary : Colors.text, fontWeight: activeSubject === course ? '700' : '400' }}>{course}</Text>
+                                    {activeSubject === course && <MaterialCommunityIcons name="check" size={20} color={Colors.primary} />}
+                                </TouchableOpacity>
+                            ))}
                         </ScrollView>
                     </View>
                 </Pressable>
@@ -651,3 +556,4 @@ const LibraryScreen = ({ route, navigation: navProp }: any) => {
 };
 
 export default LibraryScreen;
+

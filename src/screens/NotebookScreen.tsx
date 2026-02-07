@@ -5,24 +5,22 @@ import {
     FlatList,
     TouchableOpacity,
     ActivityIndicator,
-    StatusBar,
-    useColorScheme,
     RefreshControl,
-    Alert,
-    Dimensions
+    Alert
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { notesService, Note } from '../services/notes';
-import { LinearGradient } from 'expo-linear-gradient';
+import { notesService } from '../services/notes';
 import Toast from 'react-native-toast-message';
-
-const { width } = Dimensions.get('window');
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
 
 const NotebookScreen = ({ navigation }: any) => {
     const { user } = useAuth();
-    const isDark = useColorScheme() === 'dark';
+    const insets = useSafeAreaInsets();
+
     const [notes, setNotes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -59,8 +57,7 @@ const NotebookScreen = ({ navigation }: any) => {
                             setNotes(prev => prev.filter(n => n.$id !== noteId));
                             Toast.show({
                                 type: 'success',
-                                text1: 'Note Deleted',
-                                text2: 'The reflection has been removed.'
+                                text1: 'Note Deleted'
                             });
                         }
                     }
@@ -79,111 +76,131 @@ const NotebookScreen = ({ navigation }: any) => {
             return;
         }
 
-        Toast.show({
-            type: 'info',
-            text1: 'Opening Study Material',
-            text2: 'Redirecting to ' + item.contentTitle
-        });
-
-        // Pass autoOpenNotes so the detail screen pops the note editor immediately
         navigation.navigate('ContentDetail', {
             item: item.contentItem,
             autoOpenNotes: true
         });
     };
 
-    const renderNoteItem = ({ item }: { item: any }) => (
-        <View className="bg-white dark:bg-slate-900 mx-6 mb-4 p-5 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <View className="flex-row justify-between items-start mb-3">
-                <View className="flex-1">
-                    <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[2px] mb-1">
-                        {item.contentSubject || 'Nursing Module'}
-                    </Text>
-                    <Text className="text-base font-black text-slate-900 dark:text-white leading-tight" numberOfLines={1}>
-                        {item.contentTitle}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    onPress={() => handleDeleteNote(item.$id)}
-                    className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-2xl"
-                >
-                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
-                </TouchableOpacity>
-            </View>
-
-            <View className="bg-slate-50/50 dark:bg-slate-800/30 p-4 rounded-2xl mb-4">
-                <Text className="text-slate-600 dark:text-slate-300 text-[13px] leading-5" numberOfLines={4}>
-                    {item.text}
-                </Text>
-            </View>
-
-            <View className="flex-row justify-between items-center pt-2">
-                <View className="flex-row items-center">
-                    <MaterialCommunityIcons name="clock-outline" size={12} color={isDark ? "#475569" : "#94A3B8"} />
-                    <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                        {new Date(item.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </Text>
+    const renderNoteItem = ({ item, index }: { item: any, index: number }) => (
+        <Animated.View entering={FadeInDown.delay(index * 50).springify()}>
+            <View style={{
+                backgroundColor: Colors.white,
+                marginHorizontal: Spacing.md,
+                marginBottom: Spacing.sm,
+                borderRadius: BorderRadius.xs,
+                borderWidth: 1,
+                borderColor: Colors.border,
+                padding: Spacing.md,
+                ...Shadow.small
+            }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.sm }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ ...Typography.caption, color: Colors.primary, fontWeight: '700', textTransform: 'uppercase' }}>
+                            {item.contentSubject || 'General'}
+                        </Text>
+                        <Text style={{ ...Typography.body, fontWeight: '700', marginTop: 2 }}>{item.contentTitle}</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => handleDeleteNote(item.$id)}
+                        style={{ padding: 4 }}
+                    >
+                        <MaterialCommunityIcons name="delete-outline" size={20} color={Colors.error} />
+                    </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                    onPress={() => handleEditNote(item)}
-                    className="flex-row items-center bg-blue-600 px-5 py-2.5 rounded-2xl shadow-sm shadow-blue-500/20"
-                >
-                    <MaterialCommunityIcons name="pencil" size={12} color="white" />
-                    <Text className="text-[10px] font-black text-white uppercase tracking-widest ml-2">Edit Reflection</Text>
-                </TouchableOpacity>
+                <View style={{
+                    backgroundColor: Colors.background,
+                    padding: Spacing.sm,
+                    borderRadius: BorderRadius.xs,
+                    marginBottom: Spacing.md
+                }}>
+                    <Text style={{ ...Typography.body, fontSize: 13, color: Colors.text }}>{item.text}</Text>
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ ...Typography.caption, color: Colors.textMuted }}>
+                        {new Date(item.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+
+                    <TouchableOpacity
+                        onPress={() => handleEditNote(item)}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: Colors.primaryLight,
+                            paddingHorizontal: Spacing.sm,
+                            paddingVertical: 6,
+                            borderRadius: BorderRadius.xs,
+                            borderWidth: 1,
+                            borderColor: Colors.primary
+                        }}
+                    >
+                        <MaterialCommunityIcons name="pencil-outline" size={14} color={Colors.primary} />
+                        <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 12, marginLeft: 4 }}>OPEN MATERIAL</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
+        </Animated.View>
     );
 
     return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-                {/* Header */}
-                <View className="flex-row items-center px-6 py-4 justify-between">
-                    <TouchableOpacity
-                        onPress={() => navigation.goBack()}
-                        className="w-11 h-11 items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800"
-                    >
-                        <MaterialCommunityIcons name="chevron-left" size={28} color={isDark ? "#FFFFFF" : "#0F172A"} />
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
                     </TouchableOpacity>
-                    <View className="items-center">
-                        <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">Study Notebook</Text>
-                        <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{notes.length} Reflections</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>Study Notebook</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>{notes.length} Reflections</Text>
                     </View>
-                    <View className="w-11" />
                 </View>
+            </View>
 
+            <View style={{ flex: 1 }}>
                 {loading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator size="large" color="#2563EB" />
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
                     </View>
                 ) : (
                     <FlatList
                         data={notes}
                         renderItem={renderNoteItem}
                         keyExtractor={item => item.$id}
-                        contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 }}
+                        contentContainerStyle={{ paddingTop: Spacing.md, paddingBottom: 40 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563EB" />
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                         }
                         ListEmptyComponent={
-                            <View className="flex-1 items-center justify-center mt-20 px-10">
-                                <View className="w-24 h-24 bg-slate-50 dark:bg-slate-950 rounded-[40px] items-center justify-center mb-6 border border-slate-100 dark:border-slate-900">
-                                    <MaterialCommunityIcons name="notebook-outline" size={44} color={isDark ? "#1E293B" : "#CBD5E1"} />
-                                </View>
-                                <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-2">Notebook Empty</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-center font-bold text-xs leading-5">Tap the blue notepad icon while studying any module to save your reflections here.</Text>
+                            <View style={{ alignItems: 'center', marginTop: 100, paddingHorizontal: 40 }}>
+                                <MaterialCommunityIcons name="notebook-outline" size={64} color={Colors.border} />
+                                <Text style={{ ...Typography.h2, textAlign: 'center', marginTop: Spacing.md }}>Notebook Empty</Text>
+                                <Text style={{ ...Typography.body, textAlign: 'center', color: Colors.textMuted, marginTop: Spacing.sm }}>
+                                    Your study reflections and notes will appear here.
+                                </Text>
                             </View>
                         }
                     />
                 )}
-            </SafeAreaView>
+            </View>
         </View>
     );
 };
 
 export default NotebookScreen;
+

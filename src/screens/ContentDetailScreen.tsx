@@ -2,44 +2,43 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     Dimensions,
     TouchableOpacity,
     ActivityIndicator,
     Alert,
-    StatusBar,
-    useColorScheme,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     TextInput,
     Modal,
-    Pressable
+    Pressable,
+    Linking
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Pdf from 'react-native-pdf';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { getFileUrl } from '../services/content';
 import { downloadContent, savePlaybackPosition, getPlaybackPosition, getLocalContentUri } from '../services/downloads';
 import { ContentItem } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
 import { addToRecent } from '../services/recent';
 import { useAuth } from '../context/AuthContext';
 import { notesService } from '../services/notes';
 import { useIsFocused } from '@react-navigation/native';
-
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
+import LoadingView from '../components/LoadingView';
 
 const { width, height } = Dimensions.get('window');
 
 const ContentDetailScreen = ({ route, navigation }: any) => {
     const { item }: { item: ContentItem } = route.params;
+    const insets = useSafeAreaInsets();
+
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState(false);
     const [contentUri, setContentUri] = useState<string>(getFileUrl(item.storageFileId));
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
 
     const [initialPage, setInitialPage] = useState(1);
     const { user } = useAuth();
@@ -55,11 +54,64 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
     const isFocused = useIsFocused();
     const [shouldMountPdf, setShouldMountPdf] = useState(false);
 
-    // Strict Life-cycle management for PDF component on Android
+    // Robust type normalization for document identification
+    const normalizedType = useMemo(() => item.type?.toUpperCase().replace(/\s+/g, '_') || 'PDF', [item.type]);
+    const isPdfType = useMemo(() => ['PDF', 'PAST_PAPER', 'MARKING_KEY', 'MATERIAL'].includes(normalizedType), [normalizedType]);
+
+    // Unified Initialization Logic
+    useEffect(() => {
+        const init = async () => {
+            // Track as recent immediately
+            addToRecent(item);
+
+            try {
+                // Parallelize all initialization checks
+                const [local, savedPosition, note] = await Promise.all([
+                    getLocalContentUri(item.$id),
+                    getPlaybackPosition(item.$id),
+                    user ? notesService.getNote(item.$id, user.userId) : Promise.resolve(null)
+                ]);
+
+                // 1. Set Local Status
+                if (local) {
+                    setContentUri(local);
+                    setIsDownloaded(true);
+                } else {
+                    setIsDownloaded(false);
+                }
+
+                // 2. Set Notes
+                if (note) setNoteText(note.text);
+                if (route.params?.autoOpenNotes) setIsNotesVisible(true);
+
+                // 3. Set Position
+                setSavedPos(savedPosition);
+
+                // 4. Determine if we should show Resume Modal
+                const shouldPrompt = isPdfType && savedPosition >= 1;
+
+                if (shouldPrompt) {
+                    setIsResumeModalVisible(true);
+                } else {
+                    setReadyToRender(true);
+                    if (!isPdfType) {
+                        setLoading(false);
+                    }
+                }
+            } catch (error) {
+                console.error('[ContentDetail] Init Error:', error);
+                setReadyToRender(true);
+                setLoading(false);
+            }
+        };
+
+        init();
+    }, [item.$id, user]);
+
+    // Android-specific PDF mount delay
     useEffect(() => {
         let timer: any;
-        if (isFocused && readyToRender && !isResumeModalVisible && item.type === 'PDF') {
-            // Delay mount until navigation/modal transition is fully settled
+        if (isFocused && readyToRender && !isResumeModalVisible && isPdfType) {
             timer = setTimeout(() => setShouldMountPdf(true), 500);
         } else {
             setShouldMountPdf(false);
@@ -68,82 +120,20 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
             if (timer) clearTimeout(timer);
             setShouldMountPdf(false);
         };
-    }, [isFocused, readyToRender, isResumeModalVisible, item.type]);
-
-    // Resolve local URI if available and check download status
-    useEffect(() => {
-        const checkLocal = async () => {
-            const local = await getLocalContentUri(item.$id);
-            if (local) {
-                console.log('Using local content:', local);
-                setContentUri(local);
-                setIsDownloaded(true);
-            } else {
-                setIsDownloaded(false);
-            }
-        };
-        checkLocal();
-    }, [item.$id, downloading]);
-
-    const audioPlayer = useAudioPlayer((item.type === 'AUDIO' && readyToRender) ? contentUri : null);
-    const status = useAudioPlayerStatus(audioPlayer);
-
-    // Resume logic
-    useEffect(() => {
-        const initPlayer = async () => {
-            // Track as recent
-            addToRecent(item);
-
-            const savedPosition = await getPlaybackPosition(item.$id);
-            setSavedPos(savedPosition);
-
-            // Logic for resumption: 
-            // Audio > 0s OR PDF >= 1 (if they've opened it before)
-            // We use savedPosition > 0 to ensure even minor progress triggers the prompt
-            const shouldPrompt = (item.type === 'AUDIO' && savedPosition > 0) ||
-                (item.type === 'PDF' && savedPosition >= 1);
-
-            if (shouldPrompt) {
-                // Show custom expert-level modal instead of Native Alert
-                setIsResumeModalVisible(true);
-            } else {
-                setLoading(false);
-                setReadyToRender(true);
-            }
-        };
-        initPlayer();
-    }, [item.$id]);
+    }, [isFocused, readyToRender, isResumeModalVisible, isPdfType]);
 
     const handleResume = (shouldResume: boolean) => {
         if (shouldResume) {
-            if (item.type === 'AUDIO') {
-                audioPlayer.seekTo(savedPos);
-            } else if (item.type === 'PDF') {
-                setInitialPage(savedPos);
-            }
+            setInitialPage(savedPos);
         } else {
-            if (item.type === 'PDF') setInitialPage(1);
+            setInitialPage(1);
         }
         setIsResumeModalVisible(false);
         setReadyToRender(true);
-        setLoading(false);
+        if (!isPdfType) {
+            setLoading(false);
+        }
     };
-
-    // Fetch Note logic
-    useEffect(() => {
-        const fetchNote = async () => {
-            if (user) {
-                const note = await notesService.getNote(item.$id, user.userId);
-                if (note) setNoteText(note.text);
-
-                // If we came from the Notebook with autoOpenNotes, show the modal
-                if (route.params?.autoOpenNotes) {
-                    setIsNotesVisible(true);
-                }
-            }
-        };
-        fetchNote();
-    }, [item.$id, user, route.params?.autoOpenNotes]);
 
     const handleSaveNote = async () => {
         if (!user) return;
@@ -153,43 +143,39 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
         if (success) {
             Toast.show({
                 type: 'success',
-                text1: 'Note Saved',
-                text2: 'Your study reflections are synced!'
+                text1: 'Note Saved'
             });
-            // Auto close modal after successful save
             setTimeout(() => {
                 setIsNotesVisible(false);
             }, 500);
         }
     };
 
-    // Save position periodically
-    useEffect(() => {
-        if (item.type === 'AUDIO' && status.playing) {
-            savePlaybackPosition(item.$id, status.currentTime);
-        }
-    }, [status.currentTime]);
 
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const handlePlayAudio = () => {
-        if (audioPlayer.playing) {
-            audioPlayer.pause();
-        } else {
-            audioPlayer.play();
+    const handleOpenInBrowser = async () => {
+        try {
+            const remoteUrl = getFileUrl(item.storageFileId);
+            const canOpen = await Linking.canOpenURL(remoteUrl);
+            if (canOpen) {
+                await Linking.openURL(remoteUrl);
+            } else {
+                throw new Error('Cannot open URL');
+            }
+        } catch (error) {
+            console.error('[Linking Error]', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Link Error'
+            });
         }
     };
 
-    // Stable PDF source to prevent re-renders
     const pdfSource = useMemo(() => {
         if (!contentUri) return null;
         return {
             uri: contentUri,
-            cache: true
+            cache: true,
+            fileType: 'pdf'
         };
     }, [contentUri]);
 
@@ -201,8 +187,7 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
         console.log('[PDF Error]', error);
         Toast.show({
             type: 'error',
-            text1: 'Studying Error',
-            text2: 'Failed to load document.'
+            text1: 'Error loading document'
         });
     }, []);
 
@@ -221,145 +206,92 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
         if (success) {
             Toast.show({
                 type: 'success',
-                text1: 'Securely Saved',
-                text2: 'This resource is now available for offline study.'
+                text1: 'Saved for offline study'
             });
+            setIsDownloaded(true);
         } else {
             Toast.show({
                 type: 'error',
-                text1: 'Download Error',
-                text2: 'Could not save file. Please check your storage.'
+                text1: 'Download Failed'
             });
         }
     };
 
     return (
-        <View className="flex-1 bg-white dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
 
-                {/* Modern Ultra-Header */}
-                <View className="flex-row items-center px-6 py-4 border-b border-slate-50 dark:border-slate-800 bg-white dark:bg-slate-900">
-                    <TouchableOpacity
-                        onPress={() => {
-                            if (item.type === 'AUDIO') audioPlayer.pause();
-                            navigation.goBack();
-                        }}
-                        className="w-10 h-10 items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-xl"
-                    >
-                        <MaterialCommunityIcons name="chevron-left" size={28} color={isDark ? "#FFFFFF" : "#0F172A"} />
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
                     </TouchableOpacity>
-
-                    <View className="flex-1 items-center justify-center px-4">
-                        <Text className="text-[13px] font-black text-slate-900 dark:text-white uppercase tracking-tight text-center" numberOfLines={1}>{item.title}</Text>
-                        <View className="flex-row items-center mt-1">
-                            <View className="w-1 h-1 rounded-full bg-blue-500 mr-2" />
-                            <Text className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[2px]">{item.type.replace('_', ' ')}</Text>
-                        </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{item.title}</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, textTransform: 'uppercase' }}>{item.type.replace('_', ' ')}</Text>
                     </View>
 
-                    {!isDownloaded && (
+                    {!isDownloaded ? (
                         <TouchableOpacity
-                            className="w-10 h-10 items-center justify-center bg-blue-50 dark:bg-blue-900/20 rounded-xl"
                             onPress={handleDownload}
                             disabled={downloading}
+                            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
                         >
                             {downloading ? (
-                                <ActivityIndicator size="small" color="#2563EB" />
+                                <ActivityIndicator size="small" color={Colors.white} />
                             ) : (
-                                <MaterialCommunityIcons name="cloud-download-outline" size={22} color="#2563EB" />
+                                <MaterialCommunityIcons name="cloud-download-outline" size={24} color={Colors.white} />
                             )}
                         </TouchableOpacity>
-                    )}
-                    {isDownloaded && (
-                        <View className="w-10 h-10 items-center justify-center bg-green-50 dark:bg-green-900/20 rounded-xl">
-                            <MaterialCommunityIcons name="check-decagram-outline" size={22} color="#22C55E" />
+                    ) : (
+                        <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+                            <MaterialCommunityIcons name="check-decagram-outline" size={24} color={Colors.success} />
                         </View>
                     )}
                 </View>
+            </View>
 
-                {/* Defer rendering until selection is made and check is complete */}
+            <View style={{ flex: 1 }}>
                 {(!readyToRender || isResumeModalVisible) ? (
-                    <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-slate-950">
-                        <ActivityIndicator size="large" color="#2563EB" />
-                        <Text className="mt-4 text-slate-400 font-black text-[10px] uppercase tracking-widest">Ensuring Session Security...</Text>
-                    </View>
+                    <LoadingView message="Preparing study material..." />
                 ) : (
-                    item.type === 'AUDIO' ? (
-                        <ScrollView
-                            className="flex-1 bg-slate-50/50 dark:bg-slate-950"
-                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View className="bg-white dark:bg-slate-900 rounded-[40px] p-8 items-center shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800/50">
-
-                                <LinearGradient
-                                    colors={['#2563EB', '#1E40AF']}
-                                    className="w-48 h-48 rounded-[40px] items-center justify-center mb-8 shadow-2xl shadow-blue-500/30 dark:shadow-none"
-                                >
-                                    <MaterialCommunityIcons name="headphones" size={80} color="white" />
-                                    <LinearGradient
-                                        colors={['rgba(255,255,255,0.2)', 'transparent']}
-                                        className="absolute inset-0 rounded-[40px]"
-                                    />
-                                </LinearGradient>
-
-                                <View className="items-center mb-8 px-2">
-                                    <Text className="text-xl font-black text-slate-900 dark:text-white text-center mb-2 leading-tight" numberOfLines={3}>{item.title}</Text>
-                                    <View className="bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-lg">
-                                        <Text className="text-blue-600 dark:text-blue-400 text-center font-black text-[9px] uppercase tracking-[2px]">{item.subject || 'Nursing Module'}</Text>
-                                    </View>
-                                </View>
-
-                                {/* Premium Progress Bar */}
-                                <View className="w-full mb-8 px-2">
-                                    <View className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full w-full mb-3 relative overflow-hidden">
-                                        <View
-                                            className="h-full bg-blue-600 rounded-full"
-                                            style={{ width: `${(status.currentTime / status.duration) * 100 || 0}%` }}
-                                        />
-                                    </View>
-                                    <View className="flex-row justify-between">
-                                        <Text className="text-[10px] text-slate-400 dark:text-slate-500 font-black tracking-widest">{formatTime(status.currentTime)}</Text>
-                                        <Text className="text-[10px] text-slate-400 dark:text-slate-500 font-black tracking-widest">{formatTime(status.duration)}</Text>
-                                    </View>
-                                </View>
-
-                                <View className="flex-row items-center justify-center gap-8">
-                                    <TouchableOpacity onPress={() => audioPlayer.seekTo(Math.max(0, (status.currentTime || 0) - 15000))} className="opacity-60 bg-slate-50 dark:bg-slate-800 w-12 h-12 rounded-full items-center justify-center">
-                                        <MaterialCommunityIcons name="rewind-15" size={24} color={isDark ? "#FFFFFF" : "#0F172A"} />
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        className="w-20 h-20 rounded-full shadow-2xl shadow-blue-500/40 dark:shadow-none"
-                                        onPress={handlePlayAudio}
-                                        disabled={loading}
-                                    >
-                                        <LinearGradient
-                                            colors={['#2563EB', '#3B82F6']}
-                                            className="w-full h-full items-center justify-center rounded-full"
-                                        >
-                                            <MaterialCommunityIcons
-                                                name={status.playing ? "pause" : "play"}
-                                                size={40}
-                                                color="white"
-                                                style={!status.playing && { marginLeft: 4 }}
-                                            />
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity onPress={() => audioPlayer.seekTo((status.currentTime || 0) + 15000)} className="opacity-60 bg-slate-50 dark:bg-slate-800 w-12 h-12 rounded-full items-center justify-center">
-                                        <MaterialCommunityIcons name="fast-forward-15" size={24} color={isDark ? "#FFFFFF" : "#0F172A"} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </ScrollView>
-
+                    item.type === 'LINK' ? (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
+                            <MaterialCommunityIcons name="link-variant" size={64} color={Colors.primary} />
+                            <Text style={{ ...Typography.h2, textAlign: 'center', marginTop: Spacing.lg }}>External Resource</Text>
+                            <Text style={{ ...Typography.body, textAlign: 'center', color: Colors.textMuted, marginTop: Spacing.md, marginBottom: Spacing.xl }}>
+                                This material is hosted on an external portal. Click the button below to view it.
+                            </Text>
+                            <TouchableOpacity
+                                onPress={handleOpenInBrowser}
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    width: '100%',
+                                    height: 52,
+                                    borderRadius: BorderRadius.sm,
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <Text style={{ color: Colors.white, fontWeight: '700', textTransform: 'uppercase' }}>Open Link</Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        <View className="flex-1 bg-slate-50 dark:bg-slate-950">
+                        <View style={{ flex: 1 }}>
                             {shouldMountPdf && pdfSource && (
                                 <Pdf
-                                    key={`pdf-${item.$id}-${initialPage}`} // Force clean instance
+                                    key={`pdf-${item.$id}-${initialPage}`}
                                     source={pdfSource}
                                     page={initialPage}
                                     trustAllCerts={false}
@@ -370,178 +302,144 @@ const ContentDetailScreen = ({ route, navigation }: any) => {
                                         flex: 1,
                                         width: width,
                                         height: height,
-                                        backgroundColor: isDark ? '#020617' : '#F8FAFC'
+                                        backgroundColor: Colors.background
                                     }}
                                     enablePaging={true}
                                 />
                             )}
                             {loading && (
-                                <View className="absolute inset-0 bg-white dark:bg-slate-950 items-center justify-center">
-                                    <ActivityIndicator size="large" color="#2563EB" />
-                                    <Text className="mt-6 text-slate-400 dark:text-slate-500 font-bold tracking-[3px] text-[10px] uppercase">Decrypting Content</Text>
+                                <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.8)' }}>
+                                    <LoadingView fullScreen={false} message="Decrypting content..." />
                                 </View>
                             )}
                         </View>
                     )
                 )}
+            </View>
 
-                {/* Floating Note Button */}
+            {/* Floating Note Button */}
+            {!isNotesVisible && (
                 <TouchableOpacity
                     onPress={() => setIsNotesVisible(true)}
-                    activeOpacity={0.8}
-                    className="absolute bottom-8 right-6 w-16 h-16 bg-blue-600 rounded-2xl items-center justify-center shadow-2xl shadow-blue-500/40 z-50 border-2 border-white/10"
+                    style={{
+                        position: 'absolute',
+                        bottom: 24,
+                        right: 24,
+                        width: 56,
+                        height: 56,
+                        backgroundColor: Colors.primary,
+                        borderRadius: BorderRadius.full,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        ...Shadow.medium,
+                        zIndex: 200
+                    }}
                 >
-                    <MaterialCommunityIcons name="notebook-edit-outline" size={30} color="white" />
+                    <MaterialCommunityIcons name="notebook-edit-outline" size={24} color={Colors.white} />
                     {noteText.length > 0 && (
-                        <View className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white items-center justify-center">
-                            <MaterialCommunityIcons name="check" size={10} color="white" />
-                        </View>
+                        <View style={{ position: 'absolute', top: 0, right: 0, width: 14, height: 14, backgroundColor: Colors.success, borderRadius: 7, borderWidth: 2, borderColor: Colors.white }} />
                     )}
                 </TouchableOpacity>
+            )}
 
-                {/* Notes Modal / Bottom Sheet */}
-                <Modal
-                    visible={isNotesVisible}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setIsNotesVisible(false)}
-                    statusBarTranslucent
-                >
-                    <View className="flex-1">
-                        <Pressable
-                            className="absolute inset-0 bg-black/60"
-                            onPress={() => setIsNotesVisible(false)}
-                        />
-                        <KeyboardAvoidingView
-                            behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                            className="flex-1 justify-end"
-                            keyboardVerticalOffset={Platform.OS === 'android' ? 20 : 0}
-                        >
-                            <View className="bg-white dark:bg-slate-900 rounded-t-[48px] shadow-2xl overflow-hidden max-h-[85%] border-t border-white/20">
-                                {/* Elegant Drag Handle */}
-                                <View className="items-center pt-3 pb-1">
-                                    <View className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full opacity-50" />
+            {/* Notes Modal */}
+            <Modal visible={isNotesVisible} transparent={true} animationType="slide">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                        <View style={{ backgroundColor: Colors.white, borderTopLeftRadius: BorderRadius.md, borderTopRightRadius: BorderRadius.md, overflow: 'hidden' }}>
+                            <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View>
+                                    <Text style={{ color: Colors.white, fontWeight: '700' }}>Study Notes</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Personal reflections</Text>
                                 </View>
+                                <TouchableOpacity onPress={() => setIsNotesVisible(false)}>
+                                    <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
+                                </TouchableOpacity>
+                            </View>
 
-                                <ScrollView
-                                    bounces={false}
-                                    showsVerticalScrollIndicator={false}
-                                    keyboardShouldPersistTaps="handled"
-                                    contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 20, paddingBottom: 160 }}
+                            <View style={{ padding: Spacing.lg }}>
+                                <TextInput
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: Colors.border,
+                                        borderRadius: BorderRadius.sm,
+                                        padding: Spacing.md,
+                                        height: 200,
+                                        textAlignVertical: 'top',
+                                        color: Colors.text,
+                                        fontSize: 14
+                                    }}
+                                    multiline
+                                    placeholder="Write your study notes here..."
+                                    value={noteText}
+                                    onChangeText={setNoteText}
+                                />
+
+                                <TouchableOpacity
+                                    onPress={handleSaveNote}
+                                    disabled={savingNote}
+                                    style={{
+                                        backgroundColor: Colors.primary,
+                                        height: 48,
+                                        borderRadius: BorderRadius.sm,
+                                        marginTop: Spacing.lg,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: insets.bottom + Spacing.md
+                                    }}
                                 >
-                                    <View className="flex-row justify-between items-start mb-8">
-                                        <View className="flex-1 mr-4">
-                                            <View className="flex-row items-center mb-1">
-                                                <MaterialCommunityIcons name="pencil-box-multiple-outline" size={16} color="#2563EB" />
-                                                <Text className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[3px] ml-2">Digital Study Pad</Text>
-                                            </View>
-                                            <Text className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter mb-1">Study Notes</Text>
-                                            <Text className="text-slate-400 dark:text-slate-500 font-medium text-xs leading-5" numberOfLines={2}>Reflections on {item.title}</Text>
-                                        </View>
-                                        <TouchableOpacity
-                                            onPress={() => setIsNotesVisible(false)}
-                                            activeOpacity={0.7}
-                                            className="w-11 h-11 bg-slate-50 dark:bg-slate-800/80 rounded-2xl items-center justify-center border border-slate-100 dark:border-slate-800"
-                                        >
-                                            <MaterialCommunityIcons name="close" size={22} color={isDark ? "#FFFFFF" : "#0F172A"} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View className="bg-slate-50/50 dark:bg-slate-800/40 rounded-[32px] p-6 mb-10 border border-slate-100/50 dark:border-white/5 shadow-inner">
-                                        <TextInput
-                                            className="text-slate-800 dark:text-slate-100 text-[17px] font-medium min-h-[180px] leading-7"
-                                            placeholder="Capture your thoughts, mnemonic, or study focus here..."
-                                            placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-                                            multiline
-                                            textAlignVertical="top"
-                                            value={noteText}
-                                            onChangeText={setNoteText}
-                                            selectionColor="#2563EB"
-                                            autoFocus={false}
-                                        />
-                                    </View>
-
-                                    <TouchableOpacity
-                                        onPress={handleSaveNote}
-                                        disabled={savingNote}
-                                        activeOpacity={0.9}
-                                        className="shadow-xl shadow-blue-500/30"
-                                    >
-                                        <LinearGradient
-                                            colors={savingNote ? ['#94A3B8', '#64748B'] : ['#2563EB', '#1D4ED8']}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 0 }}
-                                            className="w-full py-5 rounded-[24px] items-center justify-center flex-row"
-                                        >
-                                            {savingNote ? (
-                                                <ActivityIndicator size="small" color="white" className="mr-3" />
-                                            ) : (
-                                                <MaterialCommunityIcons name="cloud-sync-outline" size={24} color="white" />
-                                            )}
-                                            <Text className="text-white font-black text-base uppercase tracking-[2px] ml-3">
-                                                {savingNote ? 'Saving...' : 'Save Study Notes'}
-                                            </Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-
-                                    <View className="mt-8 items-center">
-                                        <Text className="text-slate-400 dark:text-slate-600 text-[10px] uppercase font-bold tracking-widest">
-                                            Cloud Synced • Private to you
-                                        </Text>
-                                    </View>
-                                </ScrollView>
+                                    {savingNote ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '700' }}>SAVE NOTE</Text>}
+                                </TouchableOpacity>
                             </View>
-                        </KeyboardAvoidingView>
-                    </View>
-                </Modal>
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
 
-                {/* Premium Resume Study Modal */}
-                <Modal
-                    visible={isResumeModalVisible}
-                    transparent={true}
-                    animationType="fade"
-                >
-                    <View className="flex-1 bg-black/70 justify-center px-8">
-                        <View className="bg-white dark:bg-slate-900 w-full rounded-[48px] p-8 shadow-2xl border border-white/10 overflow-hidden">
-                            <View className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-[30px] items-center justify-center mb-8 self-center">
-                                <MaterialCommunityIcons name="history" size={40} color="#2563EB" />
-                            </View>
-
-                            <Text className="text-3xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tighter">Resume Study?</Text>
-                            <Text className="text-slate-400 dark:text-slate-500 text-center font-bold text-[10px] uppercase tracking-[3px] mb-12">
-                                {item.type === 'AUDIO' ? `Last heard at ${Math.floor(savedPos / 60000)}m ${Math.floor((savedPos % 60000) / 1000)}s` : `Last read up to Page ${savedPos}`}
+            {/* Resume Session Modal */}
+            <Modal visible={isResumeModalVisible} transparent={true} animationType="fade">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.xl }}>
+                    <View style={{ backgroundColor: Colors.white, borderRadius: BorderRadius.md, overflow: 'hidden' }}>
+                        <View style={{ padding: Spacing.md, backgroundColor: Colors.primary }}>
+                            <Text style={{ color: Colors.white, fontWeight: '700', textAlign: 'center' }}>Resume Session?</Text>
+                        </View>
+                        <View style={{ padding: Spacing.lg, alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="history" size={48} color={Colors.primary} />
+                            <Text style={{ ...Typography.body, textAlign: 'center', marginTop: Spacing.md }}>
+                                You left off at page {savedPos}. Would you like to continue?
                             </Text>
 
                             <TouchableOpacity
                                 onPress={() => handleResume(true)}
-                                activeOpacity={0.9}
-                                className="mb-4 shadow-xl shadow-blue-500/30"
+                                style={{
+                                    backgroundColor: Colors.primary,
+                                    width: '100%',
+                                    height: 44,
+                                    borderRadius: BorderRadius.sm,
+                                    marginTop: Spacing.lg,
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
                             >
-                                <LinearGradient
-                                    colors={['#2563EB', '#1D4ED8']}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    className="w-full py-5 rounded-[24px] items-center justify-center flex-row"
-                                >
-                                    <MaterialCommunityIcons name="play-circle" size={22} color="white" />
-                                    <Text className="text-white font-black text-base uppercase tracking-[2px] ml-3">Continue Learning</Text>
-                                </LinearGradient>
+                                <Text style={{ color: Colors.white, fontWeight: '700' }}>CONTINUE FROM PAGE {savedPos}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={() => handleResume(false)}
-                                activeOpacity={0.7}
-                                className="w-full py-5 rounded-[24px] items-center justify-center bg-slate-50 dark:bg-slate-800/50"
+                                style={{
+                                    marginTop: Spacing.md,
+                                    padding: Spacing.sm
+                                }}
                             >
-                                <Text className="text-slate-500 dark:text-slate-400 font-black text-xs uppercase tracking-widest">Start Fresh</Text>
+                                <Text style={{ color: Colors.textMuted, fontWeight: '700', fontSize: 12 }}>START FROM BEGINNING</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Modal>
-
-            </SafeAreaView >
-        </View >
+                </View>
+            </Modal>
+        </View>
     );
 };
 
 export default ContentDetailScreen;
+

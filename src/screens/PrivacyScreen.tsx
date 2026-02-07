@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StatusBar, Alert, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, useColorScheme } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { changePassword, deleteAccount } from '../services/auth';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Colors, Spacing, BorderRadius, Shadow, Typography } from '../theme';
+
+const { height } = Dimensions.get('window');
 
 const PrivacyScreen = ({ navigation }: any) => {
-    const scheme = useColorScheme();
-    const isDark = scheme === 'dark';
+    const insets = useSafeAreaInsets();
     const { user, signOut } = useAuth();
     const [modalVisible, setModalVisible] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
@@ -59,7 +63,6 @@ const PrivacyScreen = ({ navigation }: any) => {
                         setLoading(true);
                         try {
                             await deleteAccount(user!.$id);
-                            // AuthContext will automatically handle the lack of user session
                         } catch (error: any) {
                             Alert.alert('Error', error.message || 'Failed to delete account.');
                         } finally {
@@ -72,156 +75,224 @@ const PrivacyScreen = ({ navigation }: any) => {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top']}>
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <View className="flex-row items-center px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                <TouchableOpacity onPress={() => navigation.goBack()} className="p-2 -ml-2">
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={isDark ? "#FFFFFF" : "#1E293B"} />
-                </TouchableOpacity>
-                <Text className="text-xl font-bold text-slate-900 dark:text-white ml-2">Privacy & Security</Text>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primaryDark} />
+
+            {/* Toolbar */}
+            <View style={{
+                paddingTop: insets.top,
+                backgroundColor: Colors.primary,
+                ...Shadow.small,
+                zIndex: 100
+            }}>
+                <View style={{
+                    height: 56,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: Spacing.md
+                }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: Spacing.md }}>
+                        <MaterialCommunityIcons name="arrow-left" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>Privacy & Security</Text>
+                    </View>
+                </View>
             </View>
 
-            <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
-                <View className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 mb-6">
-                    <View className="flex-row items-center mb-6">
-                        <View className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-2xl items-center justify-center">
-                            <MaterialCommunityIcons name="shield-check" size={24} color="#16A34A" />
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md }} showsVerticalScrollIndicator={false}>
+                <Animated.View entering={FadeInDown.delay(100).springify()}>
+                    <View style={{
+                        backgroundColor: Colors.white,
+                        padding: Spacing.lg,
+                        borderRadius: BorderRadius.md,
+                        borderWidth: 1,
+                        borderColor: Colors.border,
+                        marginBottom: Spacing.lg,
+                        ...Shadow.small
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg }}>
+                            <View style={{
+                                width: 44,
+                                height: 44,
+                                backgroundColor: Colors.successLight,
+                                borderRadius: BorderRadius.sm,
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <MaterialCommunityIcons name="shield-check" size={24} color={Colors.success} />
+                            </View>
+                            <View style={{ marginLeft: Spacing.md }}>
+                                <Text style={{ ...Typography.h3 }}>Secure Platform</Text>
+                                <Text style={{ ...Typography.caption, color: Colors.textSecondary }}>Personal data is encrypted</Text>
+                            </View>
                         </View>
-                        <View className="ml-4">
-                            <Text className="text-slate-900 dark:text-white font-bold text-lg">Your data is secure</Text>
-                            <Text className="text-slate-500 dark:text-slate-400 text-sm">We use end-to-end encryption</Text>
+
+                        <Text style={{ ...Typography.body, fontWeight: '700', marginBottom: 4 }}>Privacy Policy</Text>
+                        <Text style={{ ...Typography.caption, color: Colors.textSecondary, lineHeight: 18, marginBottom: Spacing.md }}>
+                            At Nurse Learning Corner, we are committed to protecting your privacy. We only collect necessary information to provide you with the best educational experience.
+                        </Text>
+
+                        <View style={{ gap: Spacing.sm }}>
+                            <Text style={{ ...Typography.caption, color: Colors.textSecondary, lineHeight: 18 }}>
+                                • <Text style={{ fontWeight: '700', color: Colors.text }}>Information Collection:</Text> We collect your name, email, and academic details to personalize your learning journey.
+                            </Text>
+                            <Text style={{ ...Typography.caption, color: Colors.textSecondary, lineHeight: 18 }}>
+                                • <Text style={{ fontWeight: '700', color: Colors.text }}>Data Usage:</Text> Your data is used exclusively for app functionality and is never shared with third parties.
+                            </Text>
+                            <Text style={{ ...Typography.caption, color: Colors.textSecondary, lineHeight: 18 }}>
+                                • <Text style={{ fontWeight: '700', color: Colors.text }}>Device Security:</Text> Accounts are linked to your device to ensure content security.
+                            </Text>
                         </View>
                     </View>
 
-                    <Text className="text-slate-900 dark:text-white font-bold mb-2">Privacy Policy</Text>
-                    <Text className="text-slate-600 dark:text-slate-400 leading-6 mb-4">
-                        At Nurse Learning Corner, we are committed to protecting your privacy. We only collect necessary information to provide you with the best educational experience.
-                    </Text>
-                    <Text className="text-slate-600 dark:text-slate-400 leading-6 mb-4">
-                        1. <Text className="font-bold">Information Collection:</Text> We collect your name, email, and academic details to personalize your learning journey.
-                    </Text>
-                    <Text className="text-slate-600 dark:text-slate-400 leading-6 mb-4">
-                        2. <Text className="font-bold">Data Usage:</Text> Your data is used exclusively for app functionality and is never shared with third parties for marketing purposes.
-                    </Text>
-                    <Text className="text-slate-600 dark:text-slate-400 leading-6 mb-4">
-                        3. <Text className="font-bold">Device Security:</Text> We link your account to a single device to ensure content security and prevent unauthorized access.
-                    </Text>
-                </View>
+                    <TouchableOpacity
+                        onPress={() => setModalVisible(true)}
+                        style={{
+                            backgroundColor: Colors.white,
+                            padding: Spacing.md,
+                            borderRadius: BorderRadius.sm,
+                            borderWidth: 1,
+                            borderColor: Colors.border,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            marginBottom: Spacing.sm,
+                            ...Shadow.small
+                        }}
+                    >
+                        <MaterialCommunityIcons name="lock-reset" size={22} color={Colors.primary} />
+                        <Text style={{ flex: 1, marginLeft: Spacing.md, fontWeight: '600' }}>Change Password</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                    onPress={() => setModalVisible(true)}
-                    className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex-row items-center mb-4"
-                >
-                    <MaterialCommunityIcons name="lock-reset" size={22} color={isDark ? "#94A3B8" : "#64748B"} />
-                    <Text className="flex-1 ml-4 text-slate-800 dark:text-white font-bold">Change Password</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={handleDeleteAccount}
-                    className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex-row items-center mb-10"
-                >
-                    <MaterialCommunityIcons name="delete-outline" size={22} color="#EF4444" />
-                    <Text className="flex-1 ml-4 text-red-600 font-bold">Delete Account</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#475569" : "#CBD5E1"} />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleDeleteAccount}
+                        style={{
+                            backgroundColor: Colors.white,
+                            padding: Spacing.md,
+                            borderRadius: BorderRadius.sm,
+                            borderWidth: 1,
+                            borderColor: Colors.border,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            marginBottom: Spacing.xl,
+                            ...Shadow.small
+                        }}
+                    >
+                        <MaterialCommunityIcons name="delete-outline" size={22} color={Colors.error} />
+                        <Text style={{ flex: 1, marginLeft: Spacing.md, fontWeight: '600', color: Colors.error }}>Delete Account</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
+                    </TouchableOpacity>
+                </Animated.View>
             </ScrollView>
 
             {/* Change Password Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View className="flex-1 bg-black/50">
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={() => setModalVisible(false)}
-                        className="absolute inset-0"
-                    />
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                        className="flex-1 justify-end"
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-                    >
-                        <View className="bg-white dark:bg-slate-900 rounded-t-[40px] p-8 pb-12 max-h-[90%]">
-                            <View className="w-12 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full self-center mb-8" />
+            <Modal visible={modalVisible} transparent={true} animationType="slide">
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                        <View style={{
+                            backgroundColor: Colors.white,
+                            borderTopLeftRadius: BorderRadius.md,
+                            borderTopRightRadius: BorderRadius.md,
+                            overflow: 'hidden',
+                            maxHeight: height * 0.8
+                        }}>
+                            <View style={{ padding: Spacing.md, backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View>
+                                    <Text style={{ color: Colors.white, fontWeight: '700' }}>Update Password</Text>
+                                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 10 }}>Keep your account secure</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                    <MaterialCommunityIcons name="close" size={20} color={Colors.white} />
+                                </TouchableOpacity>
+                            </View>
 
-                            <Text className="text-2xl font-black text-slate-900 dark:text-white mb-2">Change Password</Text>
-                            <Text className="text-slate-500 dark:text-slate-400 font-medium mb-8">Keep your account secure with a strong password.</Text>
-
-                            <ScrollView
-                                showsVerticalScrollIndicator={false}
-                                bounces={false}
-                                keyboardShouldPersistTaps="handled"
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                            >
-                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-xs uppercase tracking-widest mb-2 ml-1">Current Password</Text>
-                                <View className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 h-14 flex-row items-center mb-4">
-                                    <MaterialCommunityIcons name="lock-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                            <ScrollView style={{ padding: Spacing.lg }} keyboardShouldPersistTaps="handled">
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>CURRENT PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    marginBottom: Spacing.md
+                                }}>
+                                    <MaterialCommunityIcons name="lock-outline" size={18} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text }}
                                         placeholder="Enter current password"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         secureTextEntry
                                         value={oldPassword}
                                         onChangeText={setOldPassword}
                                     />
                                 </View>
 
-                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-xs uppercase tracking-widest mb-2 ml-1">New Password</Text>
-                                <View className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 h-14 flex-row items-center mb-4">
-                                    <MaterialCommunityIcons name="lock-plus-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>NEW PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    marginBottom: Spacing.md
+                                }}>
+                                    <MaterialCommunityIcons name="lock-reset" size={18} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
-                                        placeholder="Min 8 characters"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text }}
+                                        placeholder="At least 8 characters"
                                         secureTextEntry
                                         value={newPassword}
                                         onChangeText={setNewPassword}
                                     />
                                 </View>
 
-                                <Text className="text-slate-900 dark:text-slate-300 font-bold text-xs uppercase tracking-widest mb-2 ml-1">Confirm New Password</Text>
-                                <View className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 h-14 flex-row items-center mb-8">
-                                    <MaterialCommunityIcons name="lock-check-outline" size={20} color={isDark ? "#64748B" : "#94A3B8"} />
+                                <Text style={{ ...Typography.label, marginBottom: Spacing.xs }}>CONFIRM NEW PASSWORD</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.sm,
+                                    paddingHorizontal: Spacing.md,
+                                    height: 48,
+                                    marginBottom: Spacing.xl
+                                }}>
+                                    <MaterialCommunityIcons name="lock-check-outline" size={18} color={Colors.textMuted} />
                                     <TextInput
-                                        className="flex-1 ml-3 text-slate-900 dark:text-white font-medium"
+                                        style={{ flex: 1, marginLeft: Spacing.sm, color: Colors.text }}
                                         placeholder="Repeat new password"
-                                        placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
                                         secureTextEntry
                                         value={confirmPassword}
                                         onChangeText={setConfirmPassword}
                                     />
                                 </View>
 
-                                <View className="flex-row gap-4">
-                                    <TouchableOpacity
-                                        onPress={() => setModalVisible(false)}
-                                        className="flex-1 bg-slate-100 dark:bg-slate-800 h-14 rounded-2xl items-center justify-center"
-                                    >
-                                        <Text className="text-slate-600 dark:text-slate-400 font-black uppercase tracking-widest text-xs">Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={handleChangePassword}
-                                        disabled={loading}
-                                        className="flex-[2] bg-blue-600 h-14 rounded-2xl items-center justify-center shadow-lg shadow-blue-200"
-                                    >
-                                        {loading ? (
-                                            <ActivityIndicator color="white" />
-                                        ) : (
-                                            <Text className="text-white font-black uppercase tracking-widest text-xs">Update Password</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
+                                <TouchableOpacity
+                                    onPress={handleChangePassword}
+                                    disabled={loading}
+                                    style={{
+                                        backgroundColor: Colors.primary,
+                                        height: 48,
+                                        borderRadius: BorderRadius.sm,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        marginBottom: insets.bottom + Spacing.xl
+                                    }}
+                                >
+                                    {loading ? <ActivityIndicator color="white" /> : <Text style={{ color: Colors.white, fontWeight: '700' }}>UPDATE PASSWORD</Text>}
+                                </TouchableOpacity>
                             </ScrollView>
                         </View>
                     </KeyboardAvoidingView>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 };
 
 export default PrivacyScreen;
+

@@ -5,11 +5,11 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    StatusBar,
     Dimensions,
     RefreshControl,
     useColorScheme
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { getContent } from '../services/content';
@@ -24,6 +24,8 @@ import { getRecentItems } from '../services/recent';
 import { checkSubscriptionExpiry } from '../services/subscription';
 import { removeAllDownloads } from '../services/downloads';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Spacing, Colors, Shadow, Typography, BorderRadius } from '../theme';
+import LoadingView from '../components/LoadingView';
 
 const { width } = Dimensions.get('window');
 const HOME_STATS_CACHE = `${FileSystem.cacheDirectory}home_stats_cache.json`;
@@ -290,12 +292,7 @@ const HomeScreen = ({ navigation }: any) => {
     }, []);
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-slate-50 dark:bg-slate-950">
-                <ActivityIndicator size="large" color={isDark ? "#60A5FA" : "#2563EB"} />
-                <Text className="mt-8 text-blue-400/60 dark:text-blue-500/40 font-black tracking-[5px] text-[10px] uppercase">Curating Excellence</Text>
-            </View>
-        );
+        return <LoadingView message="Loading Resources" />;
     }
 
     const firstName = user?.fullName?.split(' ')[0] || 'Student';
@@ -308,230 +305,245 @@ const HomeScreen = ({ navigation }: any) => {
     })();
 
     return (
-        <View className="flex-1 bg-slate-50 dark:bg-slate-950">
-            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+            <StatusBar style="light" backgroundColor={Colors.primary} />
+
+            {/* Header and Status Bar Area */}
+            <View style={{ backgroundColor: Colors.primary, ...Shadow.small }}>
+                <SafeAreaView edges={['top']}>
+                    <View style={{
+                        height: 56,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: Spacing.md,
+                        justifyContent: 'space-between',
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={() => navigation.openDrawer()}>
+                                <MaterialCommunityIcons name="menu" size={24} color={Colors.white} style={{ marginRight: Spacing.md }} />
+                            </TouchableOpacity>
+                            <Text style={{ color: Colors.white, fontSize: 18, fontWeight: '700' }}>Nurse Corner</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity onPress={() => navigation.navigate('Account')}>
+                                <View style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 18,
+                                    backgroundColor: 'rgba(255,255,255,0.2)',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <MaterialCommunityIcons name="account" size={20} color={Colors.white} />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </View>
+
+            <View style={{ flex: 1 }}>
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    className="flex-1"
+                    style={{ flex: 1 }}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={fetchData} colors={[isDark ? "#60A5FA" : "#2563EB"]} tintColor={isDark ? "#60A5FA" : "#2563EB"} />
+                        <RefreshControl refreshing={refreshing} onRefresh={fetchData} colors={[Colors.primary]} />
                     }
                 >
-                    {/* Immersive Top Header */}
-                    <View className="px-6 py-6 flex-row justify-between items-center border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                        <View>
-                            <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[3px] mb-1">{greeting}</Text>
-                            <Text className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">Hi, {firstName}.</Text>
-                        </View>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Account')}
-                            className="w-12 h-12 bg-white dark:bg-slate-800 items-center justify-center border border-slate-200 dark:border-slate-700 relative rounded-2xl"
-                        >
-                            <MaterialCommunityIcons name="account-outline" size={24} color={isDark ? "#FFFFFF" : "#1E1B4B"} />
-                            {hasUnread && (
-                                <View className="absolute top-0 right-0 w-3 h-3 bg-blue-600 border-2 border-white dark:border-slate-800" />
-                            )}
-                        </TouchableOpacity>
+                    {/* Welcome Section */}
+                    <View style={{ padding: Spacing.lg, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                        <Text style={{ color: Colors.textSecondary, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: Spacing.xs }}>
+                            {greeting}, {firstName}
+                        </Text>
+                        <Text style={Typography.h1}>Academic Dashboard</Text>
                     </View>
 
-                    {/* Performance Dashboard Widget */}
-                    <View className="px-6 mt-8 mb-12">
-                        <View className="bg-slate-900 dark:bg-slate-900 p-8 shadow-2xl shadow-slate-200 dark:shadow-none rounded-[32px] overflow-hidden border border-slate-800/50">
-                            <View className="flex-row justify-between items-start mb-10">
-                                <View className="flex-1 pr-4">
-                                    <Text className="text-blue-400 dark:text-blue-500 font-black text-[9px] uppercase tracking-[4px] mb-3">Academic Program</Text>
-                                    <Text className="text-white text-3xl font-black tracking-tighter leading-8" numberOfLines={2}>
-                                        {user?.program ? formatProgram(user.program) : 'Curriculum Not Set'}
+                    {/* DHIS2 Info Widget */}
+                    <View style={{ padding: Spacing.md }}>
+                        <View style={{
+                            backgroundColor: Colors.white,
+                            borderWidth: 1,
+                            borderColor: Colors.border,
+                            borderRadius: BorderRadius.md,
+                            padding: Spacing.md,
+                            ...Shadow.small
+                        }}>
+                            <View style={{ marginBottom: Spacing.md }}>
+                                <Text style={Typography.label}>Current Program</Text>
+                                <Text style={Typography.h2}>
+                                    {user?.program ? formatProgram(user.program) : 'Curriculum Not Set'}
+                                </Text>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: Spacing.md }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={Typography.caption}>Access Status</Text>
+                                    <Text style={{ ...Typography.body, fontWeight: '700', color: Colors.primary }}>
+                                        {daysRemaining !== null ? `${daysRemaining} Days Remaining` : 'No Active Access'}
                                     </Text>
                                 </View>
-                                <MaterialCommunityIcons name="shield-check-outline" size={28} color="rgba(255,255,255,0.2)" />
-                            </View>
-
-                            <View className="flex-row items-center border-t border-white/5 pt-8">
-                                <View className="flex-1 flex-row items-center">
-                                    <View className="w-10 h-10 bg-white/10 items-center justify-center mr-4 rounded-xl">
-                                        <MaterialCommunityIcons name="clock-check-outline" size={20} color="white" />
-                                    </View>
-                                    <View>
-                                        <Text className="text-slate-400 font-black text-[8px] uppercase tracking-[2px]">Status</Text>
-                                        <Text className="text-white font-black text-xs uppercase tracking-tighter">
-                                            {daysRemaining !== null ? `${daysRemaining} Days Access` : 'N/A'}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <View className="items-end">
-                                    <Text className="text-slate-400 font-black text-[8px] uppercase tracking-[2px]">Content Density</Text>
-                                    <Text className="text-blue-400 font-black text-xs uppercase tracking-tighter">{stats.totalItems} Resources</Text>
+                                <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                                    <Text style={Typography.caption}>Resources</Text>
+                                    <Text style={{ ...Typography.body, fontWeight: '700' }}>{stats.totalItems} Available</Text>
                                 </View>
                             </View>
                         </View>
                     </View>
 
-                    {/* Recent Materials - Industry-Standard Continuation */}
+                    {/* Recent Content List - DHIS2 Style */}
                     {recentItems.length > 0 && (
-                        <View className="mb-14">
-                            <View className="px-6 flex-row justify-between items-end mb-6">
-                                <View>
-                                    <Text className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">Continuation</Text>
-                                    <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold mt-1 uppercase tracking-widest">Recently Accessed</Text>
-                                </View>
+                        <View style={{ marginBottom: Spacing.xl }}>
+                            <View style={{ paddingHorizontal: Spacing.md, marginBottom: Spacing.sm }}>
+                                <Text style={Typography.h3}>Recently Accessed</Text>
                             </View>
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={{ paddingHorizontal: 24 }}
-                                snapToAlignment="start"
-                                snapToInterval={width * 0.75 + 16} // width + margin
-                                decelerationRate="fast"
+                                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
                             >
                                 {recentItems.map((item) => (
                                     <TouchableOpacity
                                         key={item.$id}
                                         onPress={() => navigation.navigate('ContentDetail', { item })}
-                                        className="bg-white dark:bg-slate-900 mr-4 p-5 shadow-sm border border-blue-50 dark:border-slate-800 flex-row items-center rounded-[38px]"
-                                        style={{ width: width * 0.75 }}
+                                        style={{
+                                            width: 250,
+                                            backgroundColor: Colors.white,
+                                            marginRight: Spacing.md,
+                                            padding: Spacing.md,
+                                            borderWidth: 1,
+                                            borderColor: Colors.border,
+                                            borderRadius: BorderRadius.md,
+                                            ...Shadow.small
+                                        }}
+                                        activeOpacity={0.7}
                                     >
-                                        <View className="w-12 h-12 items-center justify-center mr-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-                                            <MaterialCommunityIcons
-                                                name={item.type === 'AUDIO' ? 'headphones' : 'file-document-outline'}
-                                                size={22}
-                                                color={isDark ? "#60A5FA" : "#2563EB"}
-                                            />
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <MaterialCommunityIcons name="file-document" size={20} color={Colors.primary} style={{ marginRight: Spacing.sm }} />
+                                            <Text style={{ ...Typography.body, fontWeight: '600', flex: 1 }} numberOfLines={1}>{item.title}</Text>
                                         </View>
-                                        <View className="flex-1">
-                                            <Text className="text-slate-900 dark:text-white font-bold text-[13px] mb-1" numberOfLines={1}>{item.title}</Text>
-                                            <View className="flex-row items-center">
-                                                <Text className="text-[8px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-[2px]">{item.type.replace('_', ' ')}</Text>
-                                            </View>
+                                        <View style={{ marginTop: Spacing.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Text style={Typography.caption}>{item.type.replace('_', ' ')}</Text>
+                                            <MaterialCommunityIcons name="arrow-right" size={14} color={Colors.textMuted} />
                                         </View>
-                                        <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? "#334155" : "#BFDBFE"} />
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
                         </View>
                     )}
 
-                    {/* Main Study Tools - Revision Center */}
-                    <View className="px-6 mb-12">
-                        <View className="flex-row justify-between items-end mb-6">
-                            <View>
-                                <Text className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">Revision Center</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold mt-1 uppercase tracking-widest">Master Your Concepts</Text>
-                            </View>
-                        </View>
-
-                        <View className="flex-row gap-6">
+                    {/* Revision Grid */}
+                    <View style={{ padding: Spacing.md }}>
+                        <Text style={{ ...Typography.h3, marginBottom: Spacing.md }}>Study Tools</Text>
+                        <View style={{ flexDirection: 'row', gap: Spacing.md }}>
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('FlashcardDecks')}
-                                activeOpacity={0.9}
-                                className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: Colors.white,
+                                    padding: Spacing.md,
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.md,
+                                    alignItems: 'center',
+                                    ...Shadow.small
+                                }}
                             >
-                                <View className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-2xl items-center justify-center mb-4">
-                                    <MaterialCommunityIcons name="cards-variant" size={26} color={isDark ? "#60A5FA" : "#2563EB"} />
-                                </View>
-                                <Text className="text-slate-900 dark:text-white font-black text-sm mb-1">Knowledge Base</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-3">Flashcard Study</Text>
+                                <MaterialCommunityIcons name="cards-variant" size={32} color={Colors.primary} />
+                                <Text style={{ ...Typography.body, fontWeight: '700', marginTop: Spacing.sm }}>Flashcards</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={() => navigation.navigate('Notebook')}
-                                activeOpacity={0.9}
-                                className="flex-1 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm"
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: Colors.white,
+                                    padding: Spacing.md,
+                                    borderWidth: 1,
+                                    borderColor: Colors.border,
+                                    borderRadius: BorderRadius.md,
+                                    alignItems: 'center',
+                                    ...Shadow.small
+                                }}
                             >
-                                <View className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl items-center justify-center mb-4">
-                                    <MaterialCommunityIcons name="notebook-outline" size={26} color={isDark ? "#818CF8" : "#4F46E5"} />
-                                </View>
-                                <Text className="text-slate-900 dark:text-white font-black text-sm mb-1">My Revision Pad</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] font-bold uppercase tracking-widest leading-3">Study Reflections</Text>
+                                <MaterialCommunityIcons name="notebook" size={32} color={Colors.success} />
+                                <Text style={{ ...Typography.body, fontWeight: '700', marginTop: Spacing.sm }}>Notebook</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
 
-                    {/* Main Module Grid */}
-                    <View className="px-6 mb-12">
-                        <View className="flex-row justify-between items-end mb-8">
-                            <View>
-                                <Text className="text-slate-900 dark:text-white text-2xl font-black tracking-tight">Main Curriculum</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-xs font-bold mt-1 uppercase tracking-widest">Architectural Modules</Text>
-                            </View>
+                    {/* Modules List - DHIS2 Style (Linear instead of Grid for cleaner look) */}
+                    <View style={{ padding: Spacing.md }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
+                            <Text style={Typography.h3}>Curriculum Modules</Text>
                             <TouchableOpacity onPress={() => navigation.navigate('Library')}>
-                                <Text className="text-blue-600 dark:text-blue-400 font-black text-[10px] uppercase tracking-[3px]">Exploration</Text>
+                                <Text style={{ ...Typography.caption, color: Colors.primary, fontWeight: '700' }}>VIEW LIBRARY</Text>
                             </TouchableOpacity>
                         </View>
 
                         {subjects.length > 0 ? (
-                            <View className="flex-row flex-wrap justify-between">
+                            <View>
                                 {subjects.map((subject, index) => (
                                     <TouchableOpacity
                                         key={index}
                                         onPress={() => handleOpenModule(subject)}
-                                        className="bg-white dark:bg-slate-900 w-[48.5%] p-6 shadow-sm border border-blue-50 dark:border-slate-800 mb-3 rounded-[38px]"
+                                        style={{
+                                            backgroundColor: Colors.white,
+                                            padding: Spacing.md,
+                                            borderWidth: 1,
+                                            borderColor: Colors.border,
+                                            borderRadius: BorderRadius.sm, // Standard radius
+                                            marginBottom: Spacing.sm,
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            ...Shadow.small
+                                        }}
                                     >
-                                        <View className="w-10 h-10 items-center justify-center mb-6 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+                                        <View style={{
+                                            width: 40,
+                                            height: 40,
+                                            backgroundColor: Colors.primaryLight,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: BorderRadius.sm,
+                                            marginRight: Spacing.md
+                                        }}>
                                             <MaterialCommunityIcons
                                                 name={getSubjectIcon(subject)}
                                                 size={20}
-                                                color={isDark ? "#60A5FA" : "#2563EB"}
+                                                color={Colors.primary}
                                             />
                                         </View>
-
-                                        <Text className="text-slate-900 dark:text-white font-black text-[13px] uppercase tracking-tighter leading-4 mb-2 h-8" numberOfLines={2}>
-                                            {subject}
-                                        </Text>
-
-                                        <View className="flex-row items-center mt-3 pt-3 border-t border-slate-50 dark:border-slate-800">
-                                            <Text className="text-[8px] font-black text-blue-400 dark:text-blue-500 uppercase tracking-widest">
-                                                Technical File
-                                            </Text>
-                                        </View>
+                                        <Text style={{ ...Typography.body, fontWeight: '600', flex: 1 }}>{subject}</Text>
+                                        <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.border} />
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         ) : (
-                            <View className="bg-white dark:bg-slate-900 p-12 border border-slate-100 dark:border-slate-800 items-center rounded-[38px]">
-                                <View className="w-20 h-20 bg-slate-50 dark:bg-slate-800 items-center justify-center mb-6 border border-slate-100 dark:border-slate-700 rounded-[24px]">
-                                    <MaterialCommunityIcons name="cube-scan" size={36} color={isDark ? "#475569" : "#CBD5E1"} />
-                                </View>
-                                <Text className="text-slate-900 dark:text-white font-black text-lg text-center uppercase tracking-tighter">Architecting Curriculum</Text>
-                                <Text className="text-slate-400 dark:text-slate-500 text-xs text-center mt-3 font-medium leading-5 uppercase tracking-widest px-4">
-                                    Our academic team is curating high-fidelity modules for your profile.
-                                </Text>
+                            <View style={{ padding: Spacing.xl, alignItems: 'center', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border }}>
+                                <Text style={Typography.body}>No modules found for your program.</Text>
                             </View>
                         )}
                     </View>
 
-                    {/* Medical Term of the Day */}
-                    <View className="px-6 mb-12">
-                        <View className="relative">
-                            <LinearGradient
-                                colors={['#1E1B4B', '#2563EB']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                className="p-8 shadow-2xl shadow-indigo-100 rounded-[32px] overflow-hidden"
-                            >
-                                <View className="flex-row justify-between items-start mb-6">
-                                    <View className="bg-white/10 px-3 py-1">
-                                        <Text className="text-blue-300 font-black text-[10px] uppercase tracking-[3px]">Daily Insight</Text>
-                                    </View>
-                                    <MaterialCommunityIcons name="molecule" size={24} color="rgba(255,255,255,0.2)" />
-                                </View>
-
-                                <Text className="text-white font-black text-2xl mb-3 tracking-tight">
-                                    {dailyTerm.term}
-                                </Text>
-                                <Text className="text-slate-300 font-medium text-sm leading-6">
-                                    {dailyTerm.def}
-                                </Text>
-
-                                <View className="absolute -bottom-2 -right-2 opacity-[0.03]">
-                                    <MaterialCommunityIcons name="medical-bag" size={140} color="white" />
-                                </View>
-                            </LinearGradient>
+                    {/* Daily Insight - DHIS2 Style (No gradients) */}
+                    <View style={{ padding: Spacing.md, marginBottom: Spacing.xl }}>
+                        <View style={{
+                            backgroundColor: Colors.primaryDark,
+                            padding: Spacing.md,
+                            borderRadius: BorderRadius.md,
+                            borderLeftWidth: 4,
+                            borderLeftColor: Colors.warning
+                        }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm }}>
+                                <MaterialCommunityIcons name="lightbulb-on" size={16} color={Colors.warning} style={{ marginRight: Spacing.xs }} />
+                                <Text style={{ ...Typography.label, color: Colors.white }}>Term of the Day</Text>
+                            </View>
+                            <Text style={{ ...Typography.h3, color: Colors.white, marginBottom: Spacing.xs }}>{dailyTerm.term}</Text>
+                            <Text style={{ ...Typography.body, color: Colors.primaryLight }}>{dailyTerm.def}</Text>
                         </View>
                     </View>
                 </ScrollView>
-            </SafeAreaView>
+            </View>
         </View>
     );
 };

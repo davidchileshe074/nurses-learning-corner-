@@ -1,10 +1,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View, Platform, useColorScheme } from 'react-native';
+import { ActivityIndicator, View, Platform, useColorScheme, Text } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem, DrawerContentComponentProps } from '@react-navigation/drawer';
+import { Spacing, Colors, Typography, BorderRadius } from '../theme';
+import LoadingView from '../components/LoadingView';
 import * as SecureStore from 'expo-secure-store';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -27,6 +30,93 @@ import FlashcardStudyScreen from '../screens/FlashcardStudyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const Drawer = createDrawerNavigator();
+
+const CustomDrawerContent = (props: DrawerContentComponentProps) => {
+  const { signOut, user } = useAuth();
+
+  return (
+    <DrawerContentScrollView {...props} contentContainerStyle={{ flex: 1 }}>
+      <View style={{ padding: Spacing.lg, backgroundColor: Colors.primary, marginBottom: Spacing.md }}>
+        <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md }}>
+          <MaterialCommunityIcons name="account" size={36} color={Colors.white} />
+        </View>
+        <Text style={{ ...Typography.h3, color: Colors.white }}>{user?.fullName || 'Student'}</Text>
+        <Text style={{ ...Typography.caption, color: 'rgba(255,255,255,0.7)' }}>{user?.email}</Text>
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <DrawerItemList {...props} />
+
+        <View style={{ marginTop: Spacing.xl, borderTopWidth: 1, borderTopColor: Colors.borderLight, paddingTop: Spacing.sm }}>
+          <DrawerItem
+            label="Logout"
+            onPress={signOut}
+            icon={({ color, size }) => <MaterialCommunityIcons name="logout" size={size} color={Colors.error} />}
+            labelStyle={{ color: Colors.error, fontWeight: '600' }}
+          />
+        </View>
+      </View>
+
+      <View style={{ padding: Spacing.md, alignItems: 'center' }}>
+        <Text style={{ ...Typography.caption, color: Colors.textMuted }}>Version 1.0.0</Text>
+      </View>
+    </DrawerContentScrollView>
+  );
+};
+
+const MainDrawer = () => {
+  return (
+    <Drawer.Navigator
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      screenOptions={{
+        headerShown: false,
+        drawerActiveTintColor: Colors.primary,
+        drawerInactiveTintColor: Colors.textSecondary,
+        drawerLabelStyle: {
+          fontWeight: '600',
+          fontSize: 14,
+        }
+      }}
+    >
+      <Drawer.Screen
+        name="Dashboard"
+        component={MainTabs}
+        options={{
+          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard" size={size} color={color} />
+        }}
+      />
+      <Drawer.Screen
+        name="Study Tools"
+        component={NotebookScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="notebook" size={size} color={color} />
+        }}
+      />
+      <Drawer.Screen
+        name="Flashcards"
+        component={FlashcardDecksScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="cards-variant" size={size} color={color} />
+        }}
+      />
+      <Drawer.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="bell" size={size} color={color} />
+        }}
+      />
+      <Drawer.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{
+          drawerIcon: ({ color, size }) => <MaterialCommunityIcons name="help-circle" size={size} color={color} />
+        }}
+      />
+    </Drawer.Navigator>
+  );
+};
 
 const MainTabs = () => {
   const insets = useSafeAreaInsets();
@@ -51,16 +141,16 @@ const MainTabs = () => {
             </View>
           );
         },
-        tabBarActiveTintColor: isDark ? '#60A5FA' : '#2563EB',
-        tabBarInactiveTintColor: isDark ? '#64748B' : '#94A3B8',
+        tabBarActiveTintColor: isDark ? Colors.primaryLight : Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           height: insets.bottom > 0 ? (Platform.OS === 'android' ? 100 : 85 + insets.bottom) : 68,
           paddingBottom: insets.bottom > 0 ? (Platform.OS === 'android' ? 35 : insets.bottom + 10) : 14,
           paddingTop: 12,
-          backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+          backgroundColor: isDark ? '#0F172A' : Colors.white,
           borderTopWidth: 1,
-          borderTopColor: isDark ? '#1E293B' : '#F1F5F9',
+          borderTopColor: isDark ? '#1E293B' : Colors.borderLight,
           elevation: 15,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -4 },
@@ -84,14 +174,7 @@ const MainTabs = () => {
   );
 };
 
-const LoadingScreen = () => {
-  const isDark = useColorScheme() === 'dark';
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#020617' : '#F8FAFC' }}>
-      <ActivityIndicator size="large" color={isDark ? "#60A5FA" : "#2563EB"} />
-    </View>
-  );
-};
+const LoadingScreen = () => <LoadingView color={Colors.primary} />;
 
 const Navigation = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -128,7 +211,7 @@ const Navigation = () => {
         />
       ) : (
         <Stack.Group>
-          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="Main" component={MainDrawer} />
           <Stack.Screen name="ContentDetail" component={ContentDetailScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="Notebook" component={NotebookScreen} />

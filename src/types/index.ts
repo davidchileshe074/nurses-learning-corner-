@@ -2,7 +2,7 @@
 export type Program = 'REGISTERED-NURSING' | 'MIDWIFERY' | 'PUBLIC-HEALTH' | 'MENTAL-HEALTH' | 'ONCOLOGY' | 'PAEDIATRIC';
 export type YearOfStudy = 'YEAR1' | 'YEAR2' | 'YEAR3';
 export type Subject = string;
-export type ContentType = 'PDF' | 'AUDIO' | 'MARKING_KEY' | 'PAST_PAPER';
+export type ContentType = 'PDF' | 'LINK' | 'MARKING_KEY' | 'PAST_PAPER';
 export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED';
 
 export interface UserProfile {

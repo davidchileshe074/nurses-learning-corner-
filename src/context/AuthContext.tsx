@@ -8,6 +8,7 @@ import { registerForPushNotificationsAsync, bindPushTokenToUser } from '../servi
 import * as FileSystem from 'expo-file-system/legacy';
 
 const USER_CACHE_FILE = `${FileSystem.cacheDirectory}user_profile_cache.json`;
+const SUBSCRIPTION_CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 
 const saveUserToCache = async (user: UserProfile | null) => {
     try {
@@ -151,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     syncUser(); // Re-sync to reflect expired status
                 }
             }
-        }, 6 * 60 * 60 * 1000);
+        }, SUBSCRIPTION_CHECK_INTERVAL);
 
         return () => {
             clearInterval(interval);
